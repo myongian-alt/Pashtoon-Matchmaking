@@ -14,6 +14,8 @@ import PremiumScreen from '../screens/PremiumScreen';
 import { ProfileDetailScreen } from '../screens/ProfileDetailScreen';
 import TabNavigator from './TabNavigator';
 import { NotificationsProvider } from '../context/NotificationsContext';
+import { UserProvider } from '../context/UserContext';
+import { FormProvider } from '../context/FormContext';
 
 export type RootStackParamList = {
   Splash: undefined;
@@ -41,23 +43,27 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function AppNavigator() {
   return (
-    <NotificationsProvider>
-      <NavigationContainer>
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="Splash" component={SplashScreen} />
-          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-          <Stack.Screen name="ChooseGender" component={ChooseGenderScreen} />
-          <Stack.Screen name="AuthSelection" component={AuthSelectionScreen} />
-          <Stack.Screen name="EmailAuth" component={EmailAuthScreen} />
-          <Stack.Screen name="PhoneAuth" component={PhoneAuthScreen} />
-          <Stack.Screen name="OtpVerification" component={OtpVerificationScreen} />
-          <Stack.Screen name="ProfileCompletion" component={ProfileCompletionScreen} />
-          <Stack.Screen name="ProfileForm" component={ProfileFormScreen} />
-          <Stack.Screen name="Tabs" component={TabNavigator} />
-          <Stack.Screen name="ProfileDetail" component={ProfileDetailScreen} />
-          <Stack.Screen name="Premium" component={PremiumScreen} />
-        </Stack.Navigator>
-      </NavigationContainer>
-    </NotificationsProvider>
+    <FormProvider>
+      <UserProvider>
+        <NotificationsProvider>
+          <NavigationContainer>
+            <Stack.Navigator screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="Splash" component={SplashScreen} />
+              <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+              <Stack.Screen name="ChooseGender" component={ChooseGenderScreen} />
+              <Stack.Screen name="AuthSelection" component={AuthSelectionScreen} />
+              <Stack.Screen name="EmailAuth" component={EmailAuthScreen} />
+              <Stack.Screen name="PhoneAuth" component={PhoneAuthScreen} />
+              <Stack.Screen name="OtpVerification" component={OtpVerificationScreen} />
+              <Stack.Screen name="ProfileCompletion" component={ProfileCompletionScreen} />
+              <Stack.Screen name="ProfileForm" component={ProfileFormScreen} />
+              <Stack.Screen name="Tabs" component={TabNavigator} />
+              <Stack.Screen name="ProfileDetail" component={ProfileDetailScreen} />
+              <Stack.Screen name="Premium" component={PremiumScreen} />
+            </Stack.Navigator>
+          </NavigationContainer>
+        </NotificationsProvider>
+      </UserProvider>
+    </FormProvider>
   );
 }

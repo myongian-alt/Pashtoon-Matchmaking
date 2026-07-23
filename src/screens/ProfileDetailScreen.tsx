@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View, Image } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../theme';
 
 export function ProfileDetailScreen({ route, navigation }: any) {
@@ -7,40 +8,172 @@ export function ProfileDetailScreen({ route, navigation }: any) {
 
   return (
     <SafeAreaView style={styles.safe}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
+          <MaterialCommunityIcons name="chevron-left" size={28} color={theme.colors.primary} />
+        </Pressable>
+        <Text style={styles.headerTitle}>Profile</Text>
+        <View style={styles.spacer} />
+      </View>
+
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.imagePlaceholder}>
-          <Text style={styles.imageLabel}>Profile</Text>
+        {/* Profile Image with Gender Badge */}
+        <View style={styles.imageContainer}>
+          <Image source={profile.image} style={styles.image} />
+          <View style={styles.genderBadge}>
+            {profile.gender === 'male' ? (
+              <MaterialCommunityIcons name="human-male" size={28} color="#fff" />
+            ) : (
+              <MaterialCommunityIcons name="human-female" size={28} color="#fff" />
+            )}
+          </View>
         </View>
-        <View style={styles.headerRow}>
+
+        {/* Header Info with Marital Status */}
+        <View style={styles.headerInfo}>
           <View>
-            <Text style={styles.name}>{profile.name}, {profile.age}</Text>
-            <Text style={styles.location}>{profile.location}</Text>
+            <Text style={styles.name}>{profile.name}</Text>
+            <Text style={styles.subtitle}>{profile.age} years old</Text>
           </View>
-          <Text style={styles.matchBadge}>{profile.compatibility}% Match</Text>
         </View>
 
+        <View style={styles.infoGrid}>
+          <View style={styles.infoCard}>
+            <MaterialCommunityIcons name="ring" size={20} color={theme.colors.primary} />
+            <Text style={styles.infoLabel}>Marital Status</Text>
+            <Text style={styles.infoValue}>{profile.maritalStatus}</Text>
+          </View>
+          <View style={styles.infoCard}>
+            <MaterialCommunityIcons name="map-marker" size={20} color={theme.colors.primary} />
+            <Text style={styles.infoLabel}>Current City</Text>
+            <Text style={styles.infoValue}>{profile.currentCity}</Text>
+          </View>
+        </View>
+
+        <View style={styles.infoGrid}>
+          <View style={styles.infoCard}>
+            <MaterialCommunityIcons name="home-map-marker" size={20} color={theme.colors.primary} />
+            <Text style={styles.infoLabel}>City of Birth</Text>
+            <Text style={styles.infoValue}>{profile.cityOfBirth}</Text>
+          </View>
+          <View style={styles.infoCard}>
+            <MaterialCommunityIcons name="human-male-height" size={20} color={theme.colors.primary} />
+            <Text style={styles.infoLabel}>Height</Text>
+            <Text style={styles.infoValue}>{profile.height}</Text>
+          </View>
+        </View>
+
+        {/* About Me Section */}
+        {profile.aboutMe && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <MaterialCommunityIcons name="file-document-outline" size={20} color={theme.colors.primary} />
+              <Text style={styles.sectionTitle}>About Me</Text>
+            </View>
+            <Text style={styles.aboutText}>{profile.aboutMe}</Text>
+          </View>
+        )}
+
+        {/* Physical Characteristics */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About her</Text>
-          <Text style={styles.sectionText}>A confident professional committed to family values and a blessed marriage. Seeks a partner with strong character, ambition, and respect for tradition.</Text>
-        </View>
-
-        <View style={styles.sectionRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{profile.education}</Text>
-            <Text style={styles.statLabel}>Profession</Text>
+          <View style={styles.sectionHeader}>
+            <MaterialCommunityIcons name="human-male-board" size={20} color={theme.colors.primary} />
+            <Text style={styles.sectionTitle}>Physical</Text>
           </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{profile.age} yrs</Text>
-            <Text style={styles.statLabel}>Age</Text>
+          <View style={styles.infoGrid}>
+            <View style={styles.detailCard}>
+              <Text style={styles.detailLabel}>Body Type</Text>
+              <Text style={styles.detailValue}>{profile.bodyType}</Text>
+            </View>
           </View>
         </View>
 
+        {/* Education & Career */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Family & Lifestyle</Text>
-          <Text style={styles.sectionText}>Belongs to a supportive family, values health and balanced living. Open to travel, education, and faith-centered companionship.</Text>
+          <View style={styles.sectionHeader}>
+            <MaterialCommunityIcons name="briefcase" size={20} color={theme.colors.primary} />
+            <Text style={styles.sectionTitle}>Education & Career</Text>
+          </View>
+          <View style={styles.infoGrid}>
+            <View style={styles.detailCard}>
+              <Text style={styles.detailLabel}>Education</Text>
+              <Text style={styles.detailValue}>{profile.education}</Text>
+            </View>
+            <View style={styles.detailCard}>
+              <Text style={styles.detailLabel}>Profession</Text>
+              <Text style={styles.detailValue}>{profile.profession}</Text>
+            </View>
+          </View>
         </View>
 
-        <Pressable style={styles.actionButton} onPress={() => navigation.goBack()}>
+        {/* Lifestyle */}
+        {profile.lifestyle && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <MaterialCommunityIcons name="heart-pulse" size={20} color={theme.colors.primary} />
+              <Text style={styles.sectionTitle}>Lifestyle</Text>
+            </View>
+            <Text style={styles.detailText}>{profile.lifestyle}</Text>
+          </View>
+        )}
+
+        {/* Moral & Values */}
+        {profile.values && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <MaterialCommunityIcons name="scale-balance" size={20} color={theme.colors.primary} />
+              <Text style={styles.sectionTitle}>Values & Morals</Text>
+            </View>
+            <Text style={styles.detailText}>{profile.values}</Text>
+          </View>
+        )}
+
+        {/* Family */}
+        {profile.personality && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <MaterialCommunityIcons name="family-tree" size={20} color={theme.colors.primary} />
+              <Text style={styles.sectionTitle}>Personality</Text>
+            </View>
+            <Text style={styles.detailText}>{profile.personality}</Text>
+          </View>
+        )}
+
+        {/* Gallery Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <MaterialCommunityIcons name="image-multiple" size={20} color={theme.colors.primary} />
+            <Text style={styles.sectionTitle}>Gallery</Text>
+          </View>
+          <View style={styles.galleryRow}>
+            <View style={styles.galleryPlaceholder}>
+              <MaterialCommunityIcons name="image-plus" size={32} color={theme.colors.primary} />
+              <Text style={styles.galleryText}>Photo 1</Text>
+            </View>
+            <View style={styles.galleryPlaceholder}>
+              <MaterialCommunityIcons name="image-plus" size={32} color={theme.colors.primary} />
+              <Text style={styles.galleryText}>Photo 2</Text>
+            </View>
+            <View style={styles.galleryPlaceholder}>
+              <MaterialCommunityIcons name="image-plus" size={32} color={theme.colors.primary} />
+              <Text style={styles.galleryText}>Photo 3</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Contact Details Button */}
+        <Pressable 
+          style={styles.contactButton} 
+          onPress={() => navigation.navigate('ProfileCompletion' as never)}
+        >
+          <MaterialCommunityIcons name="lock-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+          <Text style={styles.contactButtonLabel}>View Contact Details</Text>
+        </Pressable>
+
+        {/* Send Interest Button */}
+        <Pressable style={styles.actionButton} onPress={() => {}}>
+          <MaterialCommunityIcons name="heart-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
           <Text style={styles.actionLabel}>Send Interest</Text>
         </Pressable>
       </ScrollView>
@@ -51,100 +184,205 @@ export function ProfileDetailScreen({ route, navigation }: any) {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#F7E1C9',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8DDD0',
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#FFF5E5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1F2924',
+    fontFamily: 'Georgia',
+  },
+  spacer: {
+    width: 44,
   },
   content: {
     padding: 20,
     paddingBottom: 32,
   },
-  image: {
-    width: '100%',
-    height: 220,
-    borderRadius: 28,
-    marginBottom: 22,
-    backgroundColor: theme.colors.surfaceSoft,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  name: {
-    color: theme.colors.text,
-    fontSize: 24,
-    fontWeight: '800',
-  },
-  location: {
-    color: theme.colors.textSecondary,
-    marginTop: 6,
-  },
-  matchBadge: {
-    color: theme.colors.primary,
-    fontSize: 14,
-    fontWeight: '800',
-    backgroundColor: theme.colors.surfaceSoft,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 18,
-  },
-  section: {
+  imageContainer: {
+    position: 'relative',
     marginBottom: 20,
   },
-  sectionTitle: {
-    color: theme.colors.text,
-    fontSize: 18,
+  image: {
+    width: '100%',
+    height: 320,
+    borderRadius: 20,
+    backgroundColor: '#E8DDD0',
+  },
+  genderBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(19, 78, 54, 0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerInfo: {
+    marginBottom: 16,
+  },
+  name: {
+    color: '#1F2924',
+    fontSize: 28,
     fontWeight: '800',
-    marginBottom: 8,
+    fontFamily: 'Georgia',
+    marginBottom: 4,
   },
-  sectionText: {
+  subtitle: {
     color: theme.colors.textSecondary,
-    lineHeight: 22,
+    fontSize: 16,
+    fontFamily: 'Georgia',
   },
-  sectionRow: {
+  infoGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 12,
+  },
+  infoCard: {
+    flex: 1,
+    backgroundColor: '#FFF5E5',
+    borderRadius: 14,
+    padding: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#F0E0D0',
+  },
+  infoLabel: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontWeight: '600',
+    marginTop: 6,
+    fontFamily: 'Georgia',
+  },
+  infoValue: {
+    fontSize: 13,
+    color: '#1F2924',
+    fontWeight: '700',
+    marginTop: 4,
+    textAlign: 'center',
+    fontFamily: 'Georgia',
+  },
+  section: {
     marginBottom: 24,
   },
-  statCard: {
-    flex: 1,
-    backgroundColor: theme.colors.surface,
-    borderRadius: 20,
-    padding: 18,
-    marginRight: 10,
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
   },
-  statValue: {
-    color: theme.colors.text,
+  sectionTitle: {
+    color: '#1F2924',
     fontSize: 18,
     fontWeight: '800',
-    marginBottom: 8,
+    fontFamily: 'Georgia',
   },
-  statLabel: {
+  aboutText: {
     color: theme.colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: 'Georgia',
   },
-  imagePlaceholder: {
-    width: '100%',
-    height: 220,
-    borderRadius: 28,
-    backgroundColor: theme.colors.surfaceSoft,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 22,
+  detailCard: {
+    flex: 1,
+    backgroundColor: '#FFF5E5',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#F0E0D0',
   },
-  imageLabel: {
+  detailLabel: {
+    fontSize: 12,
     color: theme.colors.textSecondary,
-    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 4,
+    fontFamily: 'Georgia',
+  },
+  detailValue: {
+    fontSize: 14,
+    color: '#1F2924',
     fontWeight: '700',
+    fontFamily: 'Georgia',
+  },
+  detailText: {
+    color: theme.colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: 'Georgia',
+  },
+  galleryRow: {
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'space-between',
+  },
+  galleryPlaceholder: {
+    flex: 1,
+    aspectRatio: 1,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: theme.colors.primary,
+    backgroundColor: '#FFF5E5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  galleryText: {
+    fontSize: 12,
+    color: theme.colors.primary,
+    fontWeight: '600',
+    marginTop: 6,
+    fontFamily: 'Georgia',
+  },
+  contactButton: {
+    backgroundColor: '#D4AF37',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#C9A300',
+  },
+  contactButtonLabel: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 16,
+    fontFamily: 'Georgia',
   },
   actionButton: {
     backgroundColor: theme.colors.primary,
-    borderRadius: 20,
-    paddingVertical: 16,
+    borderRadius: 16,
+    paddingVertical: 14,
     alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
   },
   actionLabel: {
     color: '#fff',
     fontWeight: '800',
     fontSize: 16,
+    fontFamily: 'Georgia',
   },
 });

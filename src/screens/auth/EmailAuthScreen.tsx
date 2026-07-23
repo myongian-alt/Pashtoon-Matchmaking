@@ -32,7 +32,7 @@ export default function EmailAuthScreen() {
           />
         </View>
 
-        <AuthButton label="Continue" onPress={() => navigation.navigate('ProfileCompletion' as never)} />
+        <AuthButton label="Continue" onPress={() => navigation.navigate('Tabs' as never)} />
 
         <Text style={styles.bottomText}>
           We will never share your email, and your profile stays private until you choose to connect.

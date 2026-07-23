@@ -30,7 +30,7 @@ export default function OtpVerificationScreen() {
           />
         </View>
 
-        <AuthButton label="Verify" onPress={() => navigation.navigate('ProfileCompletion' as never)} />
+        <AuthButton label="Verify" onPress={() => navigation.navigate('Tabs' as never)} />
 
         <View style={styles.bottomTextRow}>
           <Text style={styles.bottomText}>Didn't receive a code?</Text>
