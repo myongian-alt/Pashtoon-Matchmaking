@@ -25,7 +25,7 @@ export type RootStackParamList = {
   AuthSelection: undefined;
   EmailAuth: undefined;
   PhoneAuth: undefined;
-  OtpVerification: undefined;
+  OtpVerification: { phone: string; gender?: 'male' | 'female' };
   ProfileCompletion: undefined;
   ProfileForm: undefined;
   Tabs: undefined;
