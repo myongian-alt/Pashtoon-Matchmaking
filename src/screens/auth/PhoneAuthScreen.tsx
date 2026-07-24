@@ -4,10 +4,19 @@ import { useNavigation } from '@react-navigation/native';
 import { theme } from '../../theme';
 import { AuthButton } from '../../components/common/AuthButton';
 import { LinkText } from '../../components/common/LinkText';
+import { useUser } from '../../context/UserContext';
 
 export default function PhoneAuthScreen() {
   const navigation = useNavigation();
+  const { setUserPhone } = useUser();
   const [phone, setPhone] = useState('');
+
+  const handleContinue = () => {
+    if (phone.trim()) {
+      setUserPhone(phone);
+      navigation.navigate('OtpVerification' as never);
+    }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -29,7 +38,7 @@ export default function PhoneAuthScreen() {
           />
         </View>
 
-        <AuthButton label="Continue" onPress={() => navigation.navigate('OtpVerification' as never)} />
+        <AuthButton label="Continue" onPress={handleContinue} />
 
         <View style={styles.bottomTextRow}>
           <Text style={styles.bottomText}>Forgot password?</Text>

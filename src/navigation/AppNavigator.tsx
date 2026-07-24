@@ -11,6 +11,7 @@ import ChooseGenderScreen from '../screens/ChooseGenderScreen';
 import ProfileCompletionScreen from '../screens/profile/ProfileCompletionScreen';
 import ProfileFormScreen from '../screens/profile/ProfileFormScreen';
 import PremiumScreen from '../screens/PremiumScreen';
+import PaymentSuccessScreen from '../screens/PaymentSuccessScreen';
 import { ProfileDetailScreen } from '../screens/ProfileDetailScreen';
 import TabNavigator from './TabNavigator';
 import { NotificationsProvider } from '../context/NotificationsContext';
@@ -29,6 +30,7 @@ export type RootStackParamList = {
   ProfileForm: undefined;
   Tabs: undefined;
   Premium: undefined;
+  PaymentSuccess: undefined;
   ProfileDetail: { profile: {
     id: string;
     name: string;
@@ -57,6 +59,7 @@ export default function AppNavigator() {
               <Stack.Screen name="OtpVerification" component={OtpVerificationScreen} />
               <Stack.Screen name="ProfileCompletion" component={ProfileCompletionScreen} />
               <Stack.Screen name="ProfileForm" component={ProfileFormScreen} />
+              <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />
               <Stack.Screen name="Tabs" component={TabNavigator} />
               <Stack.Screen name="ProfileDetail" component={ProfileDetailScreen} />
               <Stack.Screen name="Premium" component={PremiumScreen} />

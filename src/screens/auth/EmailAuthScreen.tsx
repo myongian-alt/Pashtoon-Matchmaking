@@ -3,10 +3,21 @@ import { KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } fro
 import { useNavigation } from '@react-navigation/native';
 import { theme } from '../../theme';
 import { AuthButton } from '../../components/common/AuthButton';
+import { useUser } from '../../context/UserContext';
 
 export default function EmailAuthScreen() {
   const navigation = useNavigation();
+  const { setIsAuthenticated, setIsGuest, setUserEmail } = useUser();
   const [email, setEmail] = useState('');
+
+  const handleContinue = () => {
+    if (email.trim()) {
+      setUserEmail(email);
+      setIsAuthenticated(true);
+      setIsGuest(false);
+      navigation.navigate('Tabs' as never);
+    }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -32,7 +43,7 @@ export default function EmailAuthScreen() {
           />
         </View>
 
-        <AuthButton label="Continue" onPress={() => navigation.navigate('Tabs' as never)} />
+        <AuthButton label="Continue" onPress={handleContinue} />
 
         <Text style={styles.bottomText}>
           We will never share your email, and your profile stays private until you choose to connect.

@@ -113,7 +113,8 @@ export default function ProfileFormScreen() {
     if (currentSection < sections.length - 1) {
       setCurrentSection(currentSection + 1);
     } else {
-      navigation.goBack();
+      // Profile form complete - navigate to payment section
+      navigation.navigate('ProfileCompletion' as never);
     }
   };
 

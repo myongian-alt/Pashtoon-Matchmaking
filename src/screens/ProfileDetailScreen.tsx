@@ -1,10 +1,36 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../theme';
+import { useUser } from '../context/UserContext';
+import { LoginPromptModal } from '../components/common/LoginPromptModal';
 
 export function ProfileDetailScreen({ route, navigation }: any) {
   const profile = route.params?.profile;
+  const { isGuest, paymentCompleted } = useUser();
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+
+  // Check if guest is trying to view profile detail
+  useEffect(() => {
+    if (isGuest) {
+      setShowLoginPrompt(true);
+    }
+  }, [isGuest]);
+
+  const handleLoginWithEmail = () => {
+    setShowLoginPrompt(false);
+    navigation.navigate('EmailAuth' as never);
+  };
+
+  const handleLoginWithPhone = () => {
+    setShowLoginPrompt(false);
+    navigation.navigate('PhoneAuth' as never);
+  };
+
+  const handleDismiss = () => {
+    setShowLoginPrompt(false);
+    navigation.goBack();
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -177,6 +203,14 @@ export function ProfileDetailScreen({ route, navigation }: any) {
           <Text style={styles.actionLabel}>Send Interest</Text>
         </Pressable>
       </ScrollView>
+
+      {/* Login Prompt Modal for Guests */}
+      <LoginPromptModal
+        visible={showLoginPrompt}
+        onLoginWithEmail={handleLoginWithEmail}
+        onLoginWithPhone={handleLoginWithPhone}
+        onDismiss={handleDismiss}
+      />
     </SafeAreaView>
   );
 }

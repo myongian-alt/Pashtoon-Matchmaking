@@ -7,6 +7,11 @@ import { theme } from '../../theme';
 export default function ProfileCompletionScreen() {
   const navigation = useNavigation();
 
+  const handlePayment = () => {
+    // Simulate payment processing
+    navigation.navigate('PaymentSuccess' as never);
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       {/* Header */}
@@ -70,19 +75,19 @@ export default function ProfileCompletionScreen() {
           <View style={styles.paymentOptionsContainer}>
             <Text style={styles.paymentOptionsTitle}>Payment Methods</Text>
             
-            <Pressable style={styles.paymentOption}>
+            <Pressable style={styles.paymentOption} onPress={handlePayment}>
               <MaterialCommunityIcons name="credit-card" size={20} color={theme.colors.primary} />
               <Text style={styles.paymentOptionText}>Pay Online (Card)</Text>
               <MaterialCommunityIcons name="chevron-right" size={20} color="#999" />
             </Pressable>
 
-            <Pressable style={styles.paymentOption}>
+            <Pressable style={styles.paymentOption} onPress={handlePayment}>
               <MaterialCommunityIcons name="bank-transfer" size={20} color={theme.colors.primary} />
               <Text style={styles.paymentOptionText}>Bank Transfer</Text>
               <MaterialCommunityIcons name="chevron-right" size={20} color="#999" />
             </Pressable>
 
-            <Pressable style={styles.paymentOption}>
+            <Pressable style={styles.paymentOption} onPress={handlePayment}>
               <MaterialCommunityIcons name="phone" size={20} color={theme.colors.primary} />
               <Text style={styles.paymentOptionText}>Contact Admin</Text>
               <MaterialCommunityIcons name="chevron-right" size={20} color="#999" />

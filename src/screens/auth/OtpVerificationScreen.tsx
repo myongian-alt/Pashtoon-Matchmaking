@@ -4,10 +4,20 @@ import { useNavigation } from '@react-navigation/native';
 import { theme } from '../../theme';
 import { AuthButton } from '../../components/common/AuthButton';
 import { LinkText } from '../../components/common/LinkText';
+import { useUser } from '../../context/UserContext';
 
 export default function OtpVerificationScreen() {
   const navigation = useNavigation();
+  const { setIsAuthenticated, setIsGuest } = useUser();
   const [otp, setOtp] = useState('');
+
+  const handleVerify = () => {
+    if (otp.trim() && otp.length === 6) {
+      setIsAuthenticated(true);
+      setIsGuest(false);
+      navigation.navigate('Tabs' as never);
+    }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -30,7 +40,7 @@ export default function OtpVerificationScreen() {
           />
         </View>
 
-        <AuthButton label="Verify" onPress={() => navigation.navigate('Tabs' as never)} />
+        <AuthButton label="Verify" onPress={handleVerify} />
 
         <View style={styles.bottomTextRow}>
           <Text style={styles.bottomText}>Didn't receive a code?</Text>
