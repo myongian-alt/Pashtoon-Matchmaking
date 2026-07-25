@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View, FlatList, Image, ActivityIndicator } from 'react-native';
+import { Pressable, StyleSheet, Text, View, FlatList, Image, ActivityIndicator, Modal, TextInput } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { theme } from '../theme';
 import { useUser } from '../context/UserContext';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { getDiscoveryProfiles, getMatches } from '../lib/database';
+import { ModernMuslimAvatar } from '../components/common/ModernMuslimAvatar';
 
 type ProfileListItem = {
   id: string;
@@ -15,6 +16,7 @@ type ProfileListItem = {
   gender: 'male' | 'female';
   maritalStatus: string;
   currentCity: string;
+  education?: string;
   profession?: string;
   location: string;
   image?: any;
@@ -23,30 +25,105 @@ type ProfileListItem = {
   source: 'discover' | 'matches';
 };
 
-const fallbackProfiles: ProfileListItem[] = [
+type DiscoveryFilters = {
+  location: string;
+  education: string;
+  profession: string;
+  ageMin: string;
+  ageMax: string;
+};
+
+const EMPTY_FILTERS: DiscoveryFilters = {
+  location: '',
+  education: '',
+  profession: '',
+  ageMin: '',
+  ageMax: '',
+};
+
+const fallbackDiscoverProfiles: ProfileListItem[] = [
   {
-    id: 'fallback-1',
+    id: 'sample-discover-1',
     name: 'Ayesha Khan',
     age: 25,
     gender: 'female',
     maritalStatus: 'Never Married',
     currentCity: 'Kabul',
     location: 'Kabul, Afghanistan',
+    education: 'Masters',
     profession: 'Doctor',
     image: null,
     source: 'discover',
   },
   {
-    id: 'fallback-2',
+    id: 'sample-discover-2',
     name: 'Ahmed Khan',
     age: 28,
     gender: 'male',
     maritalStatus: 'Never Married',
     currentCity: 'Peshawar',
     location: 'Peshawar, Pakistan',
+    education: 'Bachelors',
     profession: 'Software Engineer',
     image: null,
     source: 'discover',
+  },
+  {
+    id: 'sample-discover-3',
+    name: 'Fatima Noor',
+    age: 24,
+    gender: 'female',
+    maritalStatus: 'Never Married',
+    currentCity: 'Lahore',
+    location: 'Lahore, Pakistan',
+    education: 'Bachelors',
+    profession: 'Teacher',
+    image: null,
+    source: 'discover',
+  },
+  {
+    id: 'sample-discover-4',
+    name: 'Omar Siddiq',
+    age: 30,
+    gender: 'male',
+    maritalStatus: 'Divorced',
+    currentCity: 'Dubai',
+    location: 'Dubai, UAE',
+    education: 'MBA',
+    profession: 'Business Analyst',
+    image: null,
+    source: 'discover',
+  },
+];
+
+const fallbackMatchProfiles: ProfileListItem[] = [
+  {
+    id: 'sample-match-1',
+    name: 'Mariam Yusuf',
+    age: 27,
+    gender: 'female',
+    maritalStatus: 'Never Married',
+    currentCity: 'Islamabad',
+    location: 'Islamabad, Pakistan',
+    education: 'Masters',
+    profession: 'Pharmacist',
+    image: null,
+    compatibility: 92,
+    source: 'matches',
+  },
+  {
+    id: 'sample-match-2',
+    name: 'Bilal Rahman',
+    age: 29,
+    gender: 'male',
+    maritalStatus: 'Never Married',
+    currentCity: 'Doha',
+    location: 'Doha, Qatar',
+    education: 'Bachelors',
+    profession: 'Civil Engineer',
+    image: null,
+    compatibility: 89,
+    source: 'matches',
   },
 ];
 
@@ -93,6 +170,7 @@ function toListItemFromProfile(row: any, source: 'discover' | 'matches'): Profil
     gender,
     maritalStatus: toDisplayMaritalStatus(row.marital_status),
     currentCity: city || 'Not set',
+    education: row.education || 'Not set',
     profession: row.profession || 'Not set',
     location: [city, country].filter(Boolean).join(', ') || 'Not set',
     image: imageUri ? { uri: imageUri } : null,
@@ -100,6 +178,62 @@ function toListItemFromProfile(row: any, source: 'discover' | 'matches'): Profil
     compatibility: row.match_score || row.profile_strength_percentage || 80,
     source,
   };
+}
+
+function mergeWithSamples(
+  list: ProfileListItem[],
+  samples: ProfileListItem[],
+  minItems: number,
+  genderFilter?: 'male' | 'female'
+) {
+  const visibleSamples = genderFilter ? samples.filter((item) => item.gender === genderFilter) : samples;
+
+  if (list.length >= minItems) {
+    return list;
+  }
+
+  const existing = new Set(list.map((item) => item.id));
+  const toAppend = visibleSamples.filter((item) => !existing.has(item.id));
+  return [...list, ...toAppend].slice(0, Math.max(minItems, list.length));
+}
+
+function matchesText(value: string | undefined, term: string) {
+  if (!term.trim()) {
+    return true;
+  }
+
+  return (value || '').toLowerCase().includes(term.trim().toLowerCase());
+}
+
+function applyFilters(list: ProfileListItem[], filters: DiscoveryFilters) {
+  const minAge = Number(filters.ageMin);
+  const maxAge = Number(filters.ageMax);
+  const hasMinAge = Number.isFinite(minAge) && minAge > 0;
+  const hasMaxAge = Number.isFinite(maxAge) && maxAge > 0;
+
+  return list.filter((item) => {
+    if (!matchesText(item.location, filters.location) && !matchesText(item.currentCity, filters.location)) {
+      return false;
+    }
+
+    if (!matchesText(item.education, filters.education)) {
+      return false;
+    }
+
+    if (!matchesText(item.profession, filters.profession)) {
+      return false;
+    }
+
+    if (hasMinAge && item.age > 0 && item.age < minAge) {
+      return false;
+    }
+
+    if (hasMaxAge && item.age > 0 && item.age > maxAge) {
+      return false;
+    }
+
+    return true;
+  });
 }
 
 export default function ProfileDiscoveryScreen() {
@@ -111,6 +245,9 @@ export default function ProfileDiscoveryScreen() {
   const [loadingDiscover, setLoadingDiscover] = useState(true);
   const [loadingMatches, setLoadingMatches] = useState(true);
   const [activeMode, setActiveMode] = useState<'discover' | 'matches'>('discover');
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [appliedFilters, setAppliedFilters] = useState<DiscoveryFilters>(EMPTY_FILTERS);
+  const [draftFilters, setDraftFilters] = useState<DiscoveryFilters>(EMPTY_FILTERS);
 
   const targetGender = useMemo(() => {
     if (selectedGender === 'male') return 'female';
@@ -138,14 +275,16 @@ export default function ProfileDiscoveryScreen() {
 
       if (result.error || !result.data) {
         const genderFiltered = targetGender
-          ? fallbackProfiles.filter((item) => item.gender === targetGender)
-          : fallbackProfiles;
+          ? fallbackDiscoverProfiles.filter((item) => item.gender === targetGender)
+          : fallbackDiscoverProfiles;
         setDiscoverProfiles(genderFiltered);
         setLoadingDiscover(false);
         return;
       }
 
-      setDiscoverProfiles(result.data.map((row: any) => toListItemFromProfile(row, 'discover')));
+      const mapped = result.data.map((row: any) => toListItemFromProfile(row, 'discover'));
+      const combined = mergeWithSamples(mapped, fallbackDiscoverProfiles, 6, targetGender);
+      setDiscoverProfiles(combined);
       setLoadingDiscover(false);
     };
 
@@ -162,7 +301,7 @@ export default function ProfileDiscoveryScreen() {
       }
 
       if (result.error || !result.data) {
-        setMatchedProfiles([]);
+        setMatchedProfiles(fallbackMatchProfiles);
         setLoadingMatches(false);
         return;
       }
@@ -179,7 +318,8 @@ export default function ProfileDiscoveryScreen() {
           return toListItemFromProfile(profileRow, 'matches');
         });
 
-      setMatchedProfiles(mapped);
+      const combined = mergeWithSamples(mapped, fallbackMatchProfiles, 4, targetGender);
+      setMatchedProfiles(combined);
       setLoadingMatches(false);
     };
 
@@ -201,7 +341,31 @@ export default function ProfileDiscoveryScreen() {
     });
   };
 
-  const listData = activeMode === 'discover' ? discoverProfiles : matchedProfiles;
+  const filteredDiscoverProfiles = useMemo(
+    () => applyFilters(discoverProfiles, appliedFilters),
+    [discoverProfiles, appliedFilters]
+  );
+
+  const filteredMatchedProfiles = useMemo(
+    () => applyFilters(matchedProfiles, appliedFilters),
+    [matchedProfiles, appliedFilters]
+  );
+
+  const activeFilterCount = useMemo(() => {
+    return Object.values(appliedFilters).filter((value) => value.trim().length > 0).length;
+  }, [appliedFilters]);
+
+  const applyFilterChanges = () => {
+    setAppliedFilters(draftFilters);
+    setFilterModalVisible(false);
+  };
+
+  const clearFilterChanges = () => {
+    setDraftFilters(EMPTY_FILTERS);
+    setAppliedFilters(EMPTY_FILTERS);
+  };
+
+  const listData = activeMode === 'discover' ? filteredDiscoverProfiles : filteredMatchedProfiles;
   const isLoading = activeMode === 'discover' ? loadingDiscover : loadingMatches;
 
   const renderProfileCard = ({ item }: { item: ProfileListItem }) => {
@@ -214,11 +378,7 @@ export default function ProfileDiscoveryScreen() {
             <Image source={item.image} style={styles.profileImage} />
           ) : (
             <View style={styles.emptyImage}>
-              <MaterialCommunityIcons
-                name={item.gender === 'female' ? 'human-female' : 'human-male'}
-                size={72}
-                color={theme.colors.primary}
-              />
+              <ModernMuslimAvatar gender={item.gender} size={130} />
             </View>
           )}
         </View>
@@ -255,6 +415,11 @@ export default function ProfileDiscoveryScreen() {
 
           <View style={styles.biodataSection}>
             <View style={styles.biodataItem}>
+              <MaterialCommunityIcons name="school" size={18} color={theme.colors.primary} />
+              <Text style={styles.biodataLabel}>Education</Text>
+              <Text style={styles.biodataValue}>{item.education || 'Not set'}</Text>
+            </View>
+            <View style={[styles.biodataItem, styles.biodataItemWithTopSpacing]}>
               <MaterialCommunityIcons name="briefcase" size={18} color={theme.colors.primary} />
               <Text style={styles.biodataLabel}>Profession</Text>
               <Text style={styles.biodataValue}>{item.profession || 'Not set'}</Text>
@@ -293,7 +458,16 @@ export default function ProfileDiscoveryScreen() {
           <MaterialCommunityIcons name="chevron-left" size={28} color={theme.colors.primary} />
         </Pressable>
         <Text style={styles.headerTitle}>Discover & Matches</Text>
-        <View style={styles.spacer} />
+        <Pressable
+          style={styles.filterButton}
+          onPress={() => {
+            setDraftFilters(appliedFilters);
+            setFilterModalVisible(true);
+          }}
+        >
+          <MaterialCommunityIcons name="tune-variant" size={20} color={theme.colors.primary} />
+          {activeFilterCount > 0 ? <View style={styles.filterBadge}><Text style={styles.filterBadgeText}>{activeFilterCount}</Text></View> : null}
+        </Pressable>
       </View>
 
       <View style={styles.segmentContainer}>
@@ -308,9 +482,17 @@ export default function ProfileDiscoveryScreen() {
           onPress={() => setActiveMode('matches')}
         >
           <Text style={[styles.segmentText, activeMode === 'matches' && styles.segmentTextActive]}>
-            Matches ({matchedProfiles.length})
+            Matches ({filteredMatchedProfiles.length})
           </Text>
         </Pressable>
+      </View>
+
+      <View style={styles.activeFilterStrip}>
+        <Text style={styles.activeFilterText}>
+          {activeFilterCount > 0
+            ? `Filtered by ${activeFilterCount} field${activeFilterCount > 1 ? 's' : ''}`
+            : 'No filters applied'}
+        </Text>
       </View>
 
       {isLoading ? (
@@ -334,6 +516,87 @@ export default function ProfileDiscoveryScreen() {
           }
         />
       )}
+
+      <Modal
+        visible={filterModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setFilterModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <Text style={styles.modalTitle}>Filter Profiles</Text>
+
+            <View style={styles.fieldBlock}>
+              <Text style={styles.fieldLabel}>Location</Text>
+              <TextInput
+                style={styles.filterInput}
+                value={draftFilters.location}
+                onChangeText={(value) => setDraftFilters((prev) => ({ ...prev, location: value }))}
+                placeholder="City or country"
+                placeholderTextColor="#9A8F84"
+              />
+            </View>
+
+            <View style={styles.fieldBlock}>
+              <Text style={styles.fieldLabel}>Education</Text>
+              <TextInput
+                style={styles.filterInput}
+                value={draftFilters.education}
+                onChangeText={(value) => setDraftFilters((prev) => ({ ...prev, education: value }))}
+                placeholder="Bachelors, Masters..."
+                placeholderTextColor="#9A8F84"
+              />
+            </View>
+
+            <View style={styles.fieldBlock}>
+              <Text style={styles.fieldLabel}>Profession</Text>
+              <TextInput
+                style={styles.filterInput}
+                value={draftFilters.profession}
+                onChangeText={(value) => setDraftFilters((prev) => ({ ...prev, profession: value }))}
+                placeholder="Engineer, Doctor..."
+                placeholderTextColor="#9A8F84"
+              />
+            </View>
+
+            <View style={styles.fieldBlock}>
+              <Text style={styles.fieldLabel}>Age Range</Text>
+              <View style={styles.ageRow}>
+                <View style={styles.ageInputWrap}>
+                  <TextInput
+                    style={styles.filterInput}
+                    value={draftFilters.ageMin}
+                    keyboardType="number-pad"
+                    onChangeText={(value) => setDraftFilters((prev) => ({ ...prev, ageMin: value }))}
+                    placeholder="Min"
+                    placeholderTextColor="#9A8F84"
+                  />
+                </View>
+                <View style={styles.ageInputWrap}>
+                  <TextInput
+                    style={styles.filterInput}
+                    value={draftFilters.ageMax}
+                    keyboardType="number-pad"
+                    onChangeText={(value) => setDraftFilters((prev) => ({ ...prev, ageMax: value }))}
+                    placeholder="Max"
+                    placeholderTextColor="#9A8F84"
+                  />
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.modalActions}>
+              <Pressable style={styles.clearButton} onPress={clearFilterChanges}>
+                <Text style={styles.clearButtonText}>Clear</Text>
+              </Pressable>
+              <Pressable style={styles.applyButton} onPress={applyFilterChanges}>
+                <Text style={styles.applyButtonText}>Apply</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -366,7 +629,47 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
   },
-  spacer: { width: 44 },
+  filterButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#FFF5E5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: 3,
+    right: 3,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E74C3C',
+    paddingHorizontal: 3,
+  },
+  filterBadgeText: {
+    fontSize: 10,
+    color: '#fff',
+    fontWeight: '800',
+  },
+  activeFilterStrip: {
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 2,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#FFF5E5',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#F0DAB9',
+  },
+  activeFilterText: {
+    color: '#6A5134',
+    fontSize: 12,
+    fontWeight: '600',
+  },
   segmentContainer: {
     flexDirection: 'row',
     backgroundColor: '#FFF5E5',
@@ -456,6 +759,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   biodataItem: { alignItems: 'center' },
+  biodataItemWithTopSpacing: { marginTop: 12 },
   biodataLabel: { fontSize: 12, color: '#5A6360', fontFamily: 'Georgia', marginTop: 6, fontWeight: '600' },
   biodataValue: { fontSize: 13, color: '#1F2924', fontFamily: 'Georgia', fontWeight: '700', marginTop: 2, textAlign: 'center' },
   actionButtons: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
@@ -507,5 +811,81 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontSize: 14,
     textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(12, 12, 12, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 28,
+  },
+  modalTitle: {
+    fontSize: 19,
+    fontWeight: '800',
+    color: '#1F2924',
+    marginBottom: 14,
+    fontFamily: 'Georgia',
+  },
+  fieldBlock: {
+    marginBottom: 12,
+  },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#3D443F',
+    marginBottom: 6,
+  },
+  filterInput: {
+    height: 42,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E3D4C4',
+    backgroundColor: '#FFFDF9',
+    paddingHorizontal: 12,
+    fontSize: 13,
+    color: '#1F2924',
+  },
+  ageRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  ageInputWrap: {
+    flex: 1,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8,
+  },
+  clearButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    borderRadius: 12,
+    height: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clearButtonText: {
+    color: theme.colors.primary,
+    fontWeight: '700',
+  },
+  applyButton: {
+    flex: 1,
+    borderRadius: 12,
+    height: 46,
+    backgroundColor: theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  applyButtonText: {
+    color: '#fff',
+    fontWeight: '800',
   },
 });

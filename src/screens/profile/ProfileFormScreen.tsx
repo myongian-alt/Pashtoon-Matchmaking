@@ -21,6 +21,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { Country, City } from 'country-state-city';
 import { upsertCurrentUserProfile } from '../../lib/database';
+import { ModernMuslimAvatar } from '../../components/common/ModernMuslimAvatar';
 
 type ProfileFormNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ProfileForm'>;
 
@@ -573,14 +574,14 @@ function FormField({ field, value, onChange }: { field: any; value: string; onCh
             style={[styles.avatarOption, value === 'male-avatar' && styles.avatarOptionSelected]}
             onPress={() => onChange('male-avatar')}
           >
-            <MaterialCommunityIcons name="human-male" size={40} color={value === 'male-avatar' ? theme.colors.primary : '#999'} />
+            <ModernMuslimAvatar gender="male" size={64} />
             <Text style={[styles.avatarOptionText, value === 'male-avatar' && styles.avatarOptionTextSelected]}>Male Avatar</Text>
           </Pressable>
           <Pressable
             style={[styles.avatarOption, value === 'female-avatar' && styles.avatarOptionSelected]}
             onPress={() => onChange('female-avatar')}
           >
-            <MaterialCommunityIcons name="human-female" size={40} color={value === 'female-avatar' ? theme.colors.primary : '#999'} />
+            <ModernMuslimAvatar gender="female" size={64} />
             <Text style={[styles.avatarOptionText, value === 'female-avatar' && styles.avatarOptionTextSelected]}>Female Avatar</Text>
           </Pressable>
           <Pressable style={styles.avatarOption} onPress={() => handlePickImage('profilePhoto')}>

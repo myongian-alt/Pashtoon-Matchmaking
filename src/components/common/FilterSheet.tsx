@@ -10,7 +10,6 @@ interface FilterSheetProps {
 const FILTER_OPTIONS = [
   'Gender',
   'Age Range',
-  'Religion',
   'Education',
   'Location',
 ];

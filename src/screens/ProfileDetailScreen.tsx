@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../theme';
 import { useUser } from '../context/UserContext';
 import { LoginPromptModal } from '../components/common/LoginPromptModal';
+import { ModernMuslimAvatar } from '../components/common/ModernMuslimAvatar';
 
 export function ProfileDetailScreen({ route, navigation }: any) {
   const profile = route.params?.profile;
@@ -13,8 +14,9 @@ export function ProfileDetailScreen({ route, navigation }: any) {
   const galleryPhotos = Array.isArray(profile?.galleryPhotos)
     ? profile.galleryPhotos.filter((uri: unknown) => typeof uri === 'string' && uri.length > 0)
     : [];
+  const isPresetAvatar = profile?.image === 'male-avatar' || profile?.image === 'female-avatar';
   const profileImageSource =
-    typeof profile?.image === 'string' && profile.image.length > 0
+    typeof profile?.image === 'string' && profile.image.length > 0 && !isPresetAvatar
       ? { uri: profile.image }
       : profile?.image;
 
@@ -62,11 +64,7 @@ export function ProfileDetailScreen({ route, navigation }: any) {
             <Image source={profileImageSource} style={styles.image} />
           ) : (
             <View style={[styles.image, styles.emptyImage]}>
-              <MaterialCommunityIcons
-                name={profile?.gender === 'female' ? 'human-female' : 'human-male'}
-                size={72}
-                color={theme.colors.primary}
-              />
+              <ModernMuslimAvatar gender={profile?.gender === 'female' ? 'female' : 'male'} size={140} />
             </View>
           )}
           <View style={styles.genderBadge}>

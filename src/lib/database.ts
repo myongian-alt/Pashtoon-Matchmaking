@@ -8,6 +8,8 @@ type ProfileFormSnapshot = {
   currentCity?: string;
   nationality?: string;
   phoneNumber?: string;
+  educationLevel?: string;
+  degreeeName?: string;
   profession?: string;
   aboutMe?: string;
 };
@@ -83,6 +85,7 @@ export async function upsertCurrentUserProfile(
     current_city: (formData.currentCity || '').trim() || 'Not set',
     nationality: (formData.nationality || '').trim() || null,
     phone_number: (formData.phoneNumber || '').trim() || null,
+    education: (formData.educationLevel || formData.degreeeName || '').trim() || null,
     profession: (formData.profession || '').trim() || null,
     about_me: (formData.aboutMe || '').trim() || null,
   };
@@ -188,6 +191,7 @@ export async function getDiscoveryProfiles(
       date_of_birth,
       current_city,
       nationality,
+      education,
       profession,
       marital_status,
       about_me,
@@ -377,6 +381,7 @@ export async function getMatches(userId: string) {
         marital_status,
         current_city,
         nationality,
+        education,
         profession,
         about_me,
         profile_strength_percentage,
