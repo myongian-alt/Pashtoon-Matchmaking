@@ -13,11 +13,19 @@ COMMENT ON TABLE public.user_app_state IS 'Per-user app state that does not fit 
 COMMENT ON COLUMN public.user_app_state.profile_completed IS 'True when the user has submitted profile form completion at least once.';
 
 -- Keep updated_at fresh on writes
+CREATE OR REPLACE FUNCTION public.update_user_app_state_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 DROP TRIGGER IF EXISTS trigger_user_app_state_updated_at ON public.user_app_state;
 CREATE TRIGGER trigger_user_app_state_updated_at
   BEFORE UPDATE ON public.user_app_state
   FOR EACH ROW
-  EXECUTE FUNCTION public.update_updated_at_column();
+  EXECUTE FUNCTION public.update_user_app_state_updated_at();
 
 ALTER TABLE public.user_app_state ENABLE ROW LEVEL SECURITY;
 
