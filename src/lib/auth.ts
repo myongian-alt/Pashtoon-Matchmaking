@@ -73,6 +73,9 @@ export async function signUpWithPhone(
   try {
     const { data, error } = await supabase.auth.signInWithOtp({
       phone,
+      options: {
+        shouldCreateUser: true,
+      },
     });
 
     if (error) {

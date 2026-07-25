@@ -37,7 +37,10 @@ export default function PhoneAuthScreen() {
     setError(null);
 
     try {
-      const formattedPhone = phone.startsWith('+') ? phone : '+92' + phone;
+      const cleanedPhone = phone.replace(/[\s()-]/g, '');
+      const formattedPhone = cleanedPhone.startsWith('+')
+        ? cleanedPhone
+        : `+92${cleanedPhone.replace(/^0+/, '')}`;
 
       const response = await signUpWithPhone(formattedPhone);
 
@@ -48,7 +51,15 @@ export default function PhoneAuthScreen() {
           gender: selectedGender || undefined,
         });
       } else {
-        setError(response.error?.message || 'Failed to send OTP');
+        const message = response.error?.message || 'Failed to send OTP';
+
+        if (message.toLowerCase().includes('unsupported phone provider')) {
+          setError(
+            'Phone login is not enabled for this Supabase project yet. Please configure an SMS provider in Supabase Auth > Providers.'
+          );
+        } else {
+          setError(message);
+        }
       }
     } catch (err) {
       setError('An unexpected error occurred');
@@ -151,6 +162,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: theme.colors.muted,
     marginTop: 8,
+  },
+  providerHint: {
+    fontSize: 12,
+    color: theme.colors.textSecondary,
+    marginTop: 8,
+    lineHeight: 18,
   },
   errorText: {
     color: '#E74C3C',

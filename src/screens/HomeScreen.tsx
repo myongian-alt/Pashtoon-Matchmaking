@@ -1,7 +1,13 @@
 import React from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { theme } from '../theme';
+import { useForm } from '../context/FormContext';
+import { useUser } from '../context/UserContext';
+import { RootStackParamList } from '../navigation/AppNavigator';
+
+type HomeNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const cards = [
   { title: 'Recommended Matches', subtitle: 'Profiles curated for family values.', amount: '24' },
@@ -17,10 +23,38 @@ const statistics = [
 ];
 
 export default function HomeScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<HomeNavigationProp>();
+  const { formData } = useForm();
+  const { profileCompleted } = useUser();
+
+  const handleViewMyProfile = () => {
+    const profile = {
+      id: 'self',
+      name: formData.name || 'Your Profile',
+      age: formData.dateOfBirth ? Math.max(18, new Date().getFullYear() - Number(formData.dateOfBirth.split('-')[0])) : 0,
+      gender: 'male',
+      maritalStatus: formData.maritalStatus || 'Not set',
+      cityOfBirth: formData.cityOfBirth || 'Not set',
+      currentCity: formData.currentCity || 'Not set',
+      education: formData.educationLevel || formData.degreeeName || 'Not set',
+      profession: formData.profession || 'Not set',
+      location: formData.currentCity || 'Not set',
+      height: formData.height || 'Not set',
+      bodyType: formData.bodyType || 'Not set',
+      aboutMe: formData.aboutMe || '',
+      lifestyle: formData.outlook || '',
+      values: formData.importantValue || '',
+      personality: formData.personality || '',
+      image: formData.profilePhoto || null,
+      galleryPhotos: Array.isArray(formData.galleryPhotos) ? formData.galleryPhotos : [],
+      isSelfProfile: true,
+    };
+
+    navigation.navigate('ProfileDetail', { profile });
+  };
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <View style={styles.headerRow}>
         <View>
           <Text style={styles.greeting}>Assalamualaikum,</Text>
@@ -36,20 +70,19 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      <FlatList
-        data={cards}
-        keyExtractor={(item) => item.title}
+      <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.cardsList}
-        renderItem={({ item }) => (
-          <View style={styles.statCard}>
+      >
+        {cards.map((item) => (
+          <View key={item.title} style={styles.statCard}>
             <Text style={styles.statTitle}>{item.title}</Text>
             <Text style={styles.statSubtitle}>{item.subtitle}</Text>
             <Text style={styles.statAmount}>{item.amount}</Text>
           </View>
-        )}
-      />
+        ))}
+      </ScrollView>
 
       <View style={styles.premiumBanner}>
         <Text style={styles.premiumTitle}>Upgrade for full access</Text>
@@ -59,10 +92,31 @@ export default function HomeScreen() {
         </Pressable>
       </View>
 
+      <View style={styles.profileSetupCard}>
+        <Text style={styles.profileSetupTitle}>{profileCompleted ? 'Your profile is ready' : 'Complete your profile'}</Text>
+        <Text style={styles.profileSetupCaption}>
+          {profileCompleted
+            ? 'You can view or edit your profile anytime.'
+            : 'Add your photos, personal details, and preferences so matches can find you.'}
+        </Text>
+        <Pressable
+          style={styles.profileSetupButton}
+          onPress={() => navigation.navigate(profileCompleted ? 'ProfileForm' : 'ProfileCompletion')}
+        >
+          <Text style={styles.profileSetupButtonText}>{profileCompleted ? 'Edit My Profile' : 'Start Profile Setup'}</Text>
+        </Pressable>
+        <Pressable
+          style={styles.profilePreviewButton}
+          onPress={handleViewMyProfile}
+        >
+          <Text style={styles.profilePreviewButtonText}>View My Profile</Text>
+        </Pressable>
+      </View>
+
       <View style={styles.browseSection}>
         <Text style={styles.browseTitle}>Ready to discover matches?</Text>
-        <Pressable style={styles.browseButton} onPress={() => navigation.navigate('Matches' as never)}>
-          <Text style={styles.browseButtonText}>Browse Matches</Text>
+        <Pressable style={styles.browseButton} onPress={() => navigation.navigate('Discover' as never)}>
+          <Text style={styles.browseButtonText}>Browse Discover</Text>
         </Pressable>
       </View>
 
@@ -74,7 +128,7 @@ export default function HomeScreen() {
           </View>
         ))}
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -82,7 +136,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.background,
+  },
+  contentContainer: {
     padding: 24,
+    paddingBottom: 40,
   },
   headerRow: {
     flexDirection: 'row',
@@ -130,6 +187,7 @@ const styles = StyleSheet.create({
   },
   cardsList: {
     paddingBottom: 18,
+    paddingRight: 6,
   },
   statCard: {
     width: 220,
@@ -232,6 +290,51 @@ const styles = StyleSheet.create({
   premiumButtonText: {
     color: '#fff',
     fontSize: 16,
+    fontWeight: '700',
+  },
+  profileSetupCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    marginBottom: 24,
+  },
+  profileSetupTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: theme.colors.text,
+    marginBottom: 8,
+  },
+  profileSetupCaption: {
+    color: theme.colors.textSecondary,
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 18,
+  },
+  profileSetupButton: {
+    backgroundColor: theme.colors.primary,
+    borderRadius: 18,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  profileSetupButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  profilePreviewButton: {
+    marginTop: 12,
+    borderRadius: 18,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    backgroundColor: '#FFFFFF',
+  },
+  profilePreviewButtonText: {
+    color: theme.colors.primary,
+    fontSize: 15,
     fontWeight: '700',
   },
 });

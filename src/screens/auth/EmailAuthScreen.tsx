@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { CommonActions } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { theme } from '../../theme';
 import { AuthButton } from '../../components/common/AuthButton';
@@ -56,7 +57,12 @@ export default function EmailAuthScreen() {
         setUserEmail(email);
         setIsAuthenticated(true);
         setIsGuest(false);
-        navigation.navigate('ProfileForm' as never);
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: 'Tabs' }],
+          })
+        );
       } else {
         setError(response.error?.message || 'Authentication failed');
       }

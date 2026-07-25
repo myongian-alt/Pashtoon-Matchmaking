@@ -35,6 +35,39 @@ export async function createProfile(profileData: any) {
   return { data, error };
 }
 
+export async function getProfileCompletionStatus(userId: string) {
+  const { data, error } = await supabase
+    .from('user_app_state')
+    .select('profile_completed, completed_at, updated_at')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  return { data, error };
+}
+
+export async function setProfileCompletionStatus(profileCompleted: boolean) {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+
+  if (userError || !userData.user) {
+    return { data: null, error: userError || new Error('Not authenticated') };
+  }
+
+  const { data, error } = await supabase
+    .from('user_app_state')
+    .upsert(
+      {
+        user_id: userData.user.id,
+        profile_completed: profileCompleted,
+        completed_at: profileCompleted ? new Date().toISOString() : null,
+      },
+      { onConflict: 'user_id' }
+    )
+    .select()
+    .single();
+
+  return { data, error };
+}
+
 // ============================================================================
 // DISCOVERY & SEARCH
 // ============================================================================

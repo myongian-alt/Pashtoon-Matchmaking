@@ -3,9 +3,11 @@ import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'rea
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { theme } from '../../theme';
+import { useUser } from '../../context/UserContext';
 
 export default function ProfileCompletionScreen() {
   const navigation = useNavigation();
+  const { profileCompleted } = useUser();
 
   const handlePayment = () => {
     // Simulate payment processing
@@ -27,15 +29,17 @@ export default function ProfileCompletionScreen() {
         {/* Unlock Message */}
         <View style={styles.messageCard}>
           <MaterialCommunityIcons name="lock" size={48} color="#D4AF37" style={{ marginBottom: 12 }} />
-          <Text style={styles.messageTitle}>Unlock Contact Details</Text>
+          <Text style={styles.messageTitle}>{profileCompleted ? 'Profile Completed' : 'Unlock Contact Details'}</Text>
           <Text style={styles.messageText}>
-            To view contact information, complete your profile and proceed with payment.
+            {profileCompleted
+              ? 'Your profile is already completed. Continue with premium payment to unlock contact details.'
+              : 'To view contact information, complete your profile and proceed with payment.'}
           </Text>
         </View>
 
         {/* Complete Profile Button */}
         <Pressable style={styles.completeButton} onPress={() => navigation.navigate('ProfileForm' as never)}>
-          <Text style={styles.completeButtonText}>Complete Profile</Text>
+          <Text style={styles.completeButtonText}>{profileCompleted ? 'Edit Profile' : 'Complete Profile'}</Text>
         </Pressable>
 
         {/* Payment Section */}

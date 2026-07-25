@@ -9,13 +9,21 @@ export function ProfileDetailScreen({ route, navigation }: any) {
   const profile = route.params?.profile;
   const { isGuest, paymentCompleted } = useUser();
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const isSelfProfile = Boolean(profile?.isSelfProfile);
+  const galleryPhotos = Array.isArray(profile?.galleryPhotos)
+    ? profile.galleryPhotos.filter((uri: unknown) => typeof uri === 'string' && uri.length > 0)
+    : [];
+  const profileImageSource =
+    typeof profile?.image === 'string' && profile.image.length > 0
+      ? { uri: profile.image }
+      : profile?.image;
 
   // Check if guest is trying to view profile detail
   useEffect(() => {
-    if (isGuest) {
+    if (isGuest && !isSelfProfile) {
       setShowLoginPrompt(true);
     }
-  }, [isGuest]);
+  }, [isGuest, isSelfProfile]);
 
   const handleLoginWithEmail = () => {
     setShowLoginPrompt(false);
@@ -32,6 +40,10 @@ export function ProfileDetailScreen({ route, navigation }: any) {
     navigation.goBack();
   };
 
+  const handleEditMyProfile = () => {
+    navigation.navigate('ProfileForm' as never);
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       {/* Header */}
@@ -46,7 +58,13 @@ export function ProfileDetailScreen({ route, navigation }: any) {
       <ScrollView contentContainerStyle={styles.content}>
         {/* Profile Image with Gender Badge */}
         <View style={styles.imageContainer}>
-          <Image source={profile.image} style={styles.image} />
+          {profileImageSource ? (
+            <Image source={profileImageSource} style={styles.image} />
+          ) : (
+            <View style={[styles.image, styles.emptyImage]}>
+              <MaterialCommunityIcons name="account" size={72} color={theme.colors.primary} />
+            </View>
+          )}
           <View style={styles.genderBadge}>
             {profile.gender === 'male' ? (
               <MaterialCommunityIcons name="human-male" size={28} color="#fff" />
@@ -59,8 +77,8 @@ export function ProfileDetailScreen({ route, navigation }: any) {
         {/* Header Info with Marital Status */}
         <View style={styles.headerInfo}>
           <View>
-            <Text style={styles.name}>{profile.name}</Text>
-            <Text style={styles.subtitle}>{profile.age} years old</Text>
+            <Text style={styles.name}>{profile?.name || 'Your Profile'}</Text>
+            <Text style={styles.subtitle}>{profile?.age ? `${profile.age} years old` : 'Age not provided'}</Text>
           </View>
         </View>
 
@@ -68,12 +86,12 @@ export function ProfileDetailScreen({ route, navigation }: any) {
           <View style={styles.infoCard}>
             <MaterialCommunityIcons name="ring" size={20} color={theme.colors.primary} />
             <Text style={styles.infoLabel}>Marital Status</Text>
-            <Text style={styles.infoValue}>{profile.maritalStatus}</Text>
+            <Text style={styles.infoValue}>{profile?.maritalStatus || 'Not set'}</Text>
           </View>
           <View style={styles.infoCard}>
             <MaterialCommunityIcons name="map-marker" size={20} color={theme.colors.primary} />
             <Text style={styles.infoLabel}>Current City</Text>
-            <Text style={styles.infoValue}>{profile.currentCity}</Text>
+            <Text style={styles.infoValue}>{profile?.currentCity || 'Not set'}</Text>
           </View>
         </View>
 
@@ -81,17 +99,17 @@ export function ProfileDetailScreen({ route, navigation }: any) {
           <View style={styles.infoCard}>
             <MaterialCommunityIcons name="home-map-marker" size={20} color={theme.colors.primary} />
             <Text style={styles.infoLabel}>City of Birth</Text>
-            <Text style={styles.infoValue}>{profile.cityOfBirth}</Text>
+            <Text style={styles.infoValue}>{profile?.cityOfBirth || 'Not set'}</Text>
           </View>
           <View style={styles.infoCard}>
             <MaterialCommunityIcons name="human-male-height" size={20} color={theme.colors.primary} />
             <Text style={styles.infoLabel}>Height</Text>
-            <Text style={styles.infoValue}>{profile.height}</Text>
+            <Text style={styles.infoValue}>{profile?.height || 'Not set'}</Text>
           </View>
         </View>
 
         {/* About Me Section */}
-        {profile.aboutMe && (
+        {profile?.aboutMe ? (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <MaterialCommunityIcons name="file-document-outline" size={20} color={theme.colors.primary} />
@@ -99,7 +117,7 @@ export function ProfileDetailScreen({ route, navigation }: any) {
             </View>
             <Text style={styles.aboutText}>{profile.aboutMe}</Text>
           </View>
-        )}
+        ) : null}
 
         {/* Physical Characteristics */}
         <View style={styles.section}>
@@ -110,7 +128,7 @@ export function ProfileDetailScreen({ route, navigation }: any) {
           <View style={styles.infoGrid}>
             <View style={styles.detailCard}>
               <Text style={styles.detailLabel}>Body Type</Text>
-              <Text style={styles.detailValue}>{profile.bodyType}</Text>
+              <Text style={styles.detailValue}>{profile?.bodyType || 'Not set'}</Text>
             </View>
           </View>
         </View>
@@ -124,17 +142,17 @@ export function ProfileDetailScreen({ route, navigation }: any) {
           <View style={styles.infoGrid}>
             <View style={styles.detailCard}>
               <Text style={styles.detailLabel}>Education</Text>
-              <Text style={styles.detailValue}>{profile.education}</Text>
+              <Text style={styles.detailValue}>{profile?.education || 'Not set'}</Text>
             </View>
             <View style={styles.detailCard}>
               <Text style={styles.detailLabel}>Profession</Text>
-              <Text style={styles.detailValue}>{profile.profession}</Text>
+              <Text style={styles.detailValue}>{profile?.profession || 'Not set'}</Text>
             </View>
           </View>
         </View>
 
         {/* Lifestyle */}
-        {profile.lifestyle && (
+        {profile?.lifestyle ? (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <MaterialCommunityIcons name="heart-pulse" size={20} color={theme.colors.primary} />
@@ -142,10 +160,10 @@ export function ProfileDetailScreen({ route, navigation }: any) {
             </View>
             <Text style={styles.detailText}>{profile.lifestyle}</Text>
           </View>
-        )}
+        ) : null}
 
         {/* Moral & Values */}
-        {profile.values && (
+        {profile?.values ? (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <MaterialCommunityIcons name="scale-balance" size={20} color={theme.colors.primary} />
@@ -153,10 +171,10 @@ export function ProfileDetailScreen({ route, navigation }: any) {
             </View>
             <Text style={styles.detailText}>{profile.values}</Text>
           </View>
-        )}
+        ) : null}
 
         {/* Family */}
-        {profile.personality && (
+        {profile?.personality ? (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <MaterialCommunityIcons name="family-tree" size={20} color={theme.colors.primary} />
@@ -164,7 +182,7 @@ export function ProfileDetailScreen({ route, navigation }: any) {
             </View>
             <Text style={styles.detailText}>{profile.personality}</Text>
           </View>
-        )}
+        ) : null}
 
         {/* Gallery Section */}
         <View style={styles.section}>
@@ -173,35 +191,46 @@ export function ProfileDetailScreen({ route, navigation }: any) {
             <Text style={styles.sectionTitle}>Gallery</Text>
           </View>
           <View style={styles.galleryRow}>
-            <View style={styles.galleryPlaceholder}>
-              <MaterialCommunityIcons name="image-plus" size={32} color={theme.colors.primary} />
-              <Text style={styles.galleryText}>Photo 1</Text>
-            </View>
-            <View style={styles.galleryPlaceholder}>
-              <MaterialCommunityIcons name="image-plus" size={32} color={theme.colors.primary} />
-              <Text style={styles.galleryText}>Photo 2</Text>
-            </View>
-            <View style={styles.galleryPlaceholder}>
-              <MaterialCommunityIcons name="image-plus" size={32} color={theme.colors.primary} />
-              <Text style={styles.galleryText}>Photo 3</Text>
-            </View>
+            {galleryPhotos.length > 0 ? (
+              galleryPhotos.slice(0, 3).map((photo: string, index: number) => (
+                <View key={index} style={styles.galleryPlaceholder}>
+                  <Image source={{ uri: photo }} style={styles.galleryImage} />
+                </View>
+              ))
+            ) : (
+              <View style={[styles.galleryPlaceholder, styles.galleryPlaceholderWide]}>
+                <MaterialCommunityIcons name="image-plus" size={32} color={theme.colors.primary} />
+                <Text style={styles.galleryText}>No gallery photos yet</Text>
+              </View>
+            )}
           </View>
         </View>
 
         {/* Contact Details Button */}
-        <Pressable 
-          style={styles.contactButton} 
-          onPress={() => navigation.navigate('ProfileCompletion' as never)}
-        >
-          <MaterialCommunityIcons name="lock-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
-          <Text style={styles.contactButtonLabel}>View Contact Details</Text>
-        </Pressable>
+        {!isSelfProfile ? (
+          <Pressable
+            style={styles.contactButton}
+            onPress={() => navigation.navigate('ProfileCompletion' as never)}
+          >
+            <MaterialCommunityIcons name="lock-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.contactButtonLabel}>View Contact Details</Text>
+          </Pressable>
+        ) : null}
 
         {/* Send Interest Button */}
-        <Pressable style={styles.actionButton} onPress={() => {}}>
-          <MaterialCommunityIcons name="heart-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
-          <Text style={styles.actionLabel}>Send Interest</Text>
-        </Pressable>
+        {!isSelfProfile ? (
+          <Pressable style={styles.actionButton} onPress={() => {}}>
+            <MaterialCommunityIcons name="heart-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.actionLabel}>Send Interest</Text>
+          </Pressable>
+        ) : null}
+
+        {isSelfProfile ? (
+          <Pressable style={styles.actionButton} onPress={handleEditMyProfile}>
+            <MaterialCommunityIcons name="pencil-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.actionLabel}>Edit My Profile</Text>
+          </Pressable>
+        ) : null}
       </ScrollView>
 
       {/* Login Prompt Modal for Guests */}
@@ -260,6 +289,10 @@ const styles = StyleSheet.create({
     height: 320,
     borderRadius: 20,
     backgroundColor: '#E8DDD0',
+  },
+  emptyImage: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   genderBadge: {
     position: 'absolute',
@@ -379,6 +412,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF5E5',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  galleryPlaceholderWide: {
+    flex: 0,
+    width: '100%',
+  },
+  galleryImage: {
+    width: '100%',
+    height: '100%',
   },
   galleryText: {
     fontSize: 12,

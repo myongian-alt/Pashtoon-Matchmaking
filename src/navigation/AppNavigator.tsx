@@ -34,10 +34,24 @@ export type RootStackParamList = {
   ProfileDetail: { profile: {
     id: string;
     name: string;
-    age: number;
-    location: string;
-    education: string;
-    compatibility: number;
+    age?: number;
+    gender?: string;
+    location?: string;
+    education?: string;
+    profession?: string;
+    maritalStatus?: string;
+    cityOfBirth?: string;
+    currentCity?: string;
+    height?: string;
+    bodyType?: string;
+    aboutMe?: string;
+    lifestyle?: string;
+    values?: string;
+    personality?: string;
+    image?: any;
+    galleryPhotos?: string[];
+    compatibility?: number;
+    isSelfProfile?: boolean;
   } };
 };
 

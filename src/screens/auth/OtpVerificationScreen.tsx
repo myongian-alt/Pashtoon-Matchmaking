@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { CommonActions } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { theme } from '../../theme';
@@ -57,7 +58,12 @@ export default function OtpVerificationScreen() {
       if (response.success) {
         setIsAuthenticated(true);
         setIsGuest(false);
-        navigation.navigate('ProfileForm' as never);
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: 'Tabs' }],
+          })
+        );
       } else {
         setError(response.error?.message || 'Invalid OTP. Please try again.');
       }

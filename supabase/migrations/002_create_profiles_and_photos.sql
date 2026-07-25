@@ -194,10 +194,13 @@ CREATE TABLE IF NOT EXISTS public.profile_photos (
   is_verified BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 
-  CONSTRAINT unique_profile_picture_per_user UNIQUE (user_id) WHERE photo_type = 'profile_picture',
   CONSTRAINT display_order_non_negative CHECK (display_order >= 0),
   CONSTRAINT display_order_limit CHECK (display_order <= 4)
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS unique_profile_picture_per_user
+  ON public.profile_photos(user_id)
+  WHERE photo_type = 'profile_picture';
 
 -- Add comments
 COMMENT ON TABLE public.profile_photos IS 'Photo metadata for profile picture and gallery photos. Stores paths to Supabase Storage files.';

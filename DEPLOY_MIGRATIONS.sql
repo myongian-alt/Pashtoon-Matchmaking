@@ -346,10 +346,13 @@ CREATE TABLE IF NOT EXISTS public.profile_photos (
   is_verified BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 
-  CONSTRAINT unique_profile_picture_per_user UNIQUE (user_id) WHERE photo_type = 'profile_picture',
   CONSTRAINT display_order_non_negative CHECK (display_order >= 0),
   CONSTRAINT display_order_limit CHECK (display_order <= 4)
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS unique_profile_picture_per_user
+  ON public.profile_photos(user_id)
+  WHERE photo_type = 'profile_picture';
 
 -- Add comments
 COMMENT ON TABLE public.profile_photos IS 'Photo metadata for profile picture and gallery photos. Stores paths to Supabase Storage files.';
@@ -1682,3 +1685,45 @@ GRANT SELECT, INSERT ON public.reports TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_user_report_count(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.has_critical_reports(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.flag_profile_for_recheck(UUID, TEXT) TO authenticated;
+
+-- ============================================================================
+-- MIGRATION 008: user_app_state
+-- Purpose: Persist app-level flags such as profile completion
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS public.user_app_state (
+  user_id UUID PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
+  profile_completed BOOLEAN NOT NULL DEFAULT FALSE,
+  completed_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE public.user_app_state IS 'Per-user app state that does not fit core profile domain tables.';
+COMMENT ON COLUMN public.user_app_state.profile_completed IS 'True when the user has submitted profile form completion at least once.';
+
+DROP TRIGGER IF EXISTS trigger_user_app_state_updated_at ON public.user_app_state;
+CREATE TRIGGER trigger_user_app_state_updated_at
+  BEFORE UPDATE ON public.user_app_state
+  FOR EACH ROW
+  EXECUTE FUNCTION public.update_updated_at_column();
+
+ALTER TABLE public.user_app_state ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "user_app_state_own_read" ON public.user_app_state;
+CREATE POLICY "user_app_state_own_read" ON public.user_app_state
+  FOR SELECT
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "user_app_state_own_insert" ON public.user_app_state;
+CREATE POLICY "user_app_state_own_insert" ON public.user_app_state
+  FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "user_app_state_own_update" ON public.user_app_state;
+CREATE POLICY "user_app_state_own_update" ON public.user_app_state
+  FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+GRANT SELECT, INSERT, UPDATE ON public.user_app_state TO authenticated;

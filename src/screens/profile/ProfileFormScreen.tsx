@@ -1,9 +1,26 @@
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, Pressable, TextInput, FlatList, Modal } from 'react-native';
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  Pressable,
+  TextInput,
+  FlatList,
+  Modal,
+  Alert,
+  Image,
+} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { theme } from '../../theme';
 import { useForm } from '../../context/FormContext';
+import { useUser } from '../../context/UserContext';
+import * as ImagePicker from 'expo-image-picker';
+import { RootStackParamList } from '../../navigation/AppNavigator';
+
+type ProfileFormNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ProfileForm'>;
 
 const sections = [
   { title: 'Basic Info', icon: 'account' },
@@ -104,17 +121,45 @@ const fieldConfigs: { [key: number]: any[] } = {
 };
 
 export default function ProfileFormScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<ProfileFormNavigationProp>();
   const { formData, updateField, calculateProfileStrength } = useForm();
+  const { setProfileCompleted } = useUser();
   const [currentSection, setCurrentSection] = useState(0);
   const profileStrength = calculateProfileStrength();
+
+  const buildSelfProfile = () => ({
+    id: 'self',
+    name: formData.name || 'Your Profile',
+    age: formData.dateOfBirth ? Math.max(18, new Date().getFullYear() - Number(formData.dateOfBirth.split('-')[0])) : 0,
+    gender: 'male',
+    maritalStatus: formData.maritalStatus || 'Not set',
+    cityOfBirth: formData.cityOfBirth || 'Not set',
+    currentCity: formData.currentCity || 'Not set',
+    education: formData.educationLevel || formData.degreeeName || 'Not set',
+    profession: formData.profession || 'Not set',
+    location: formData.currentCity || 'Not set',
+    height: formData.height || 'Not set',
+    bodyType: formData.bodyType || 'Not set',
+    aboutMe: formData.aboutMe || '',
+    lifestyle: formData.outlook || '',
+    values: formData.importantValue || '',
+    personality: formData.personality || '',
+    image: formData.profilePhoto || null,
+    galleryPhotos: Array.isArray(formData.galleryPhotos) ? formData.galleryPhotos : [],
+    isSelfProfile: true,
+  });
+
+  const handleViewMyProfile = () => {
+    navigation.navigate('ProfileDetail', { profile: buildSelfProfile() });
+  };
 
   const handleNext = () => {
     if (currentSection < sections.length - 1) {
       setCurrentSection(currentSection + 1);
     } else {
-      // Profile form complete - navigate to payment section
-      navigation.navigate('ProfileCompletion' as never);
+      // Persist completion so user is not prompted to re-complete the form.
+      setProfileCompleted(true);
+      navigation.navigate('ProfileCompletion');
     }
   };
 
@@ -161,6 +206,13 @@ export default function ProfileFormScreen() {
             <Text style={styles.buttonPrimaryText}>{currentSection === sections.length - 1 ? 'Save & Continue' : 'Next →'}</Text>
           </Pressable>
         </View>
+
+        {currentSection === sections.length - 1 ? (
+          <Pressable style={styles.viewProfileButton} onPress={handleViewMyProfile}>
+            <MaterialCommunityIcons name="eye-outline" size={18} color={theme.colors.primary} />
+            <Text style={styles.viewProfileButtonText}>View My Profile</Text>
+          </Pressable>
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -257,7 +309,47 @@ function ProfilePreview({ formData }: { formData: any }) {
 }
 
 function FormField({ field, value, onChange }: { field: any; value: string; onChange: (v: string) => void }) {
+  const { formData, updateField } = useForm();
   const [showDropdown, setShowDropdown] = useState(false);
+
+  const handlePickImage = async (target: 'profilePhoto' | 'gallery', index?: number) => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) {
+      Alert.alert('Permission needed', 'Please allow photo library access to upload pictures.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: target === 'profilePhoto',
+      aspect: [1, 1],
+      quality: 0.85,
+    });
+
+    if (result.canceled || !result.assets?.length) {
+      return;
+    }
+
+    const uri = result.assets[0].uri;
+
+    if (target === 'profilePhoto') {
+      updateField('profilePhoto', uri);
+      return;
+    }
+
+    const currentGallery = Array.isArray(formData.galleryPhotos) ? [...formData.galleryPhotos] : [];
+
+    if (typeof index === 'number') {
+      currentGallery[index] = uri;
+    } else if (currentGallery.length < 5) {
+      currentGallery.push(uri);
+    } else {
+      currentGallery[currentGallery.length - 1] = uri;
+    }
+
+    updateField('galleryPhotos', currentGallery.slice(0, 5));
+  };
 
   if (field.type === 'text') {
     return (
@@ -367,10 +459,17 @@ function FormField({ field, value, onChange }: { field: any; value: string; onCh
   }
 
   if (field.type === 'avatar') {
+    const isImageUri = typeof value === 'string' && (value.startsWith('file:') || value.startsWith('http'));
+
     return (
       <View style={styles.fieldContainer}>
         <Text style={styles.label}>{field.label}</Text>
         <Text style={styles.avatarSubtext}>Select a profile photo or upload your own</Text>
+        {isImageUri && (
+          <View style={styles.avatarPreviewContainer}>
+            <Image source={{ uri: value }} style={styles.avatarPreviewImage} />
+          </View>
+        )}
         <View style={styles.avatarContainer}>
           <Pressable
             style={[styles.avatarOption, value === 'male-avatar' && styles.avatarOptionSelected]}
@@ -386,7 +485,7 @@ function FormField({ field, value, onChange }: { field: any; value: string; onCh
             <MaterialCommunityIcons name="human-female" size={40} color={value === 'female-avatar' ? theme.colors.primary : '#999'} />
             <Text style={[styles.avatarOptionText, value === 'female-avatar' && styles.avatarOptionTextSelected]}>Female Avatar</Text>
           </Pressable>
-          <Pressable style={styles.avatarOption}>
+          <Pressable style={styles.avatarOption} onPress={() => handlePickImage('profilePhoto')}>
             <MaterialCommunityIcons name="cloud-upload" size={40} color="#999" />
             <Text style={styles.avatarOptionText}>Upload Photo</Text>
           </Pressable>
@@ -396,23 +495,33 @@ function FormField({ field, value, onChange }: { field: any; value: string; onCh
   }
 
   if (field.type === 'gallery') {
+    const galleryPhotos = Array.isArray(formData.galleryPhotos) ? formData.galleryPhotos : [];
+
     return (
       <View style={styles.fieldContainer}>
         <Text style={styles.label}>{field.label}</Text>
         <Text style={styles.avatarSubtext}>Add up to 5 photos to your gallery</Text>
         <View style={styles.galleryContainer}>
-          <Pressable style={styles.galleryPlaceholder}>
-            <MaterialCommunityIcons name="plus" size={32} color={theme.colors.primary} />
-            <Text style={styles.galleryPlaceholderText}>Add Photo</Text>
-          </Pressable>
-          <Pressable style={styles.galleryPlaceholder}>
-            <MaterialCommunityIcons name="plus" size={32} color={theme.colors.primary} />
-            <Text style={styles.galleryPlaceholderText}>Add Photo</Text>
-          </Pressable>
-          <Pressable style={styles.galleryPlaceholder}>
-            <MaterialCommunityIcons name="plus" size={32} color={theme.colors.primary} />
-            <Text style={styles.galleryPlaceholderText}>Add Photo</Text>
-          </Pressable>
+          {Array.from({ length: 5 }).map((_, index) => {
+            const imageUri = galleryPhotos[index];
+
+            return (
+              <Pressable
+                key={index}
+                style={[styles.galleryPlaceholder, imageUri ? styles.galleryFilled : null]}
+                onPress={() => handlePickImage('gallery', index)}
+              >
+                {imageUri ? (
+                  <Image source={{ uri: imageUri }} style={styles.galleryImage} />
+                ) : (
+                  <>
+                    <MaterialCommunityIcons name="plus" size={32} color={theme.colors.primary} />
+                    <Text style={styles.galleryPlaceholderText}>Add Photo</Text>
+                  </>
+                )}
+              </Pressable>
+            );
+          })}
         </View>
         <Text style={styles.galleryHint}>More photos increase profile visibility and matches</Text>
       </View>
@@ -464,6 +573,23 @@ const styles = StyleSheet.create({
   buttonTextDisabled: { color: '#ccc' },
   buttonPrimary: { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: theme.colors.primary, alignItems: 'center', justifyContent: 'center' },
   buttonPrimaryText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  viewProfileButton: {
+    marginTop: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  viewProfileButtonText: {
+    color: theme.colors.primary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
   previewCard: { marginBottom: 16, backgroundColor: '#FFF5E5', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#D4AF37' },
   previewHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 8 },
   previewTitle: { fontSize: 14, fontWeight: '700', color: theme.colors.primary, fontFamily: 'Georgia' },
@@ -479,9 +605,13 @@ const styles = StyleSheet.create({
   avatarOptionSelected: { borderColor: theme.colors.primary, backgroundColor: '#FFF5E5' },
   avatarOptionText: { fontSize: 11, fontWeight: '600', color: '#999', marginTop: 6 },
   avatarOptionTextSelected: { color: theme.colors.primary },
+  avatarPreviewContainer: { alignItems: 'center', marginTop: 6, marginBottom: 6 },
+  avatarPreviewImage: { width: 120, height: 120, borderRadius: 60, borderWidth: 2, borderColor: theme.colors.primary },
   avatarSubtext: { fontSize: 12, color: '#999', marginBottom: 8 },
   galleryContainer: { flexDirection: 'row', gap: 8, marginVertical: 12, flexWrap: 'wrap' },
   galleryPlaceholder: { width: '31%', aspectRatio: 1, backgroundColor: '#FFFFFF', borderRadius: 10, borderWidth: 2, borderColor: '#E3D4C4', borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  galleryFilled: { borderStyle: 'solid', overflow: 'hidden' },
+  galleryImage: { width: '100%', height: '100%' },
   galleryPlaceholderText: { fontSize: 10, color: '#999', fontWeight: '600' },
   galleryHint: { fontSize: 11, color: '#999', fontStyle: 'italic', marginTop: 8 },
 });

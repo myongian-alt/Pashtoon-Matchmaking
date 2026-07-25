@@ -1,6 +1,8 @@
 import React, { createContext, useState, ReactNode, useEffect } from 'react';
 import { onAuthStateChange } from '../lib/auth';
 import { supabase } from '../lib/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getProfileCompletionStatus, setProfileCompletionStatus } from '../lib/database';
 
 interface UserContextType {
   selectedGender: 'male' | 'female' | null;
@@ -24,6 +26,8 @@ interface UserContextType {
 
 export const UserContext = createContext<UserContextType | undefined>(undefined);
 
+const PROFILE_COMPLETED_KEY_PREFIX = 'profile_completed:';
+
 export function UserProvider({ children }: { children: ReactNode }) {
   const [selectedGender, setSelectedGender] = useState<'male' | 'female' | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -35,6 +39,48 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [supabaseUser, setSupabaseUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  const updateProfileCompleted = async (value: boolean, targetUserId?: string | null) => {
+    setProfileCompleted(value);
+
+    const storageUserId = targetUserId ?? userId;
+    if (!storageUserId) {
+      return;
+    }
+
+    try {
+      await AsyncStorage.setItem(`${PROFILE_COMPLETED_KEY_PREFIX}${storageUserId}`, value ? '1' : '0');
+    } catch (error) {
+      console.warn('Failed to persist profile completion state:', error);
+    }
+
+    try {
+      const result = await setProfileCompletionStatus(value);
+      if (result.error) {
+        console.warn('Failed to persist profile completion in database:', result.error.message);
+      }
+    } catch (error) {
+      console.warn('Failed to persist profile completion in database:', error);
+    }
+  };
+
+  const hydrateProfileCompleted = async (targetUserId: string) => {
+    try {
+      const dbResult = await getProfileCompletionStatus(targetUserId);
+      if (dbResult.data) {
+        const value = Boolean(dbResult.data.profile_completed);
+        setProfileCompleted(value);
+        await AsyncStorage.setItem(`${PROFILE_COMPLETED_KEY_PREFIX}${targetUserId}`, value ? '1' : '0');
+        return;
+      }
+
+      const value = await AsyncStorage.getItem(`${PROFILE_COMPLETED_KEY_PREFIX}${targetUserId}`);
+      setProfileCompleted(value === '1');
+    } catch (error) {
+      console.warn('Failed to load profile completion state:', error);
+      setProfileCompleted(false);
+    }
+  };
 
   // Initialize auth state on app start
   useEffect(() => {
@@ -48,9 +94,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
           setSupabaseUser(data.session.user);
           setUserEmail(data.session.user.email || null);
           setUserPhone(data.session.user.phone || null);
+          await hydrateProfileCompleted(data.session.user.id);
         } else {
           setIsAuthenticated(false);
           setIsGuest(true);
+          setProfileCompleted(false);
           setLoading(false);
         }
       } catch (error) {
@@ -75,6 +123,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           setSupabaseUser(session.user);
           setUserEmail(session.user.email || null);
           setUserPhone(session.user.phone || null);
+          hydrateProfileCompleted(session.user.id);
         }
       } else if (event === 'SIGNED_OUT') {
         setIsAuthenticated(false);
@@ -110,7 +159,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
       userPhone,
       setUserPhone,
       profileCompleted,
-      setProfileCompleted,
+      setProfileCompleted: (value: boolean) => {
+        void updateProfileCompleted(value);
+      },
       paymentCompleted,
       setPaymentCompleted,
       userId,
