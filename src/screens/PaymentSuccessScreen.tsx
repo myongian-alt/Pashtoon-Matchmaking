@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { theme } from '../theme';
 import { useUser } from '../context/UserContext';
+import { AppBottomNav } from '../components/common/AppBottomNav';
 
 export default function PaymentSuccessScreen() {
   const navigation = useNavigation();
@@ -111,6 +112,8 @@ export default function PaymentSuccessScreen() {
           </Text>
         </View>
       </View>
+
+      <AppBottomNav activeTab="Home" />
     </SafeAreaView>
   );
 }

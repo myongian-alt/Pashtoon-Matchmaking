@@ -1,25 +1,46 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { FlatList, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import { ProfileCard } from '../components/common/ProfileCard';
 import { theme } from '../theme';
+import { useUser } from '../context/UserContext';
 
 const favorites = [
-  { id: '1', name: 'Hira', age: 28, location: 'Quetta', education: 'Teacher', compatibility: 92 },
-  { id: '2', name: 'Sania', age: 26, location: 'Faisalabad', education: 'Accountant', compatibility: 88 },
+  { id: '1', name: 'Hira', age: 28, gender: 'female' as const, location: 'Quetta', education: 'Teacher', compatibility: 92 },
+  { id: '2', name: 'Sania', age: 26, gender: 'female' as const, location: 'Faisalabad', education: 'Accountant', compatibility: 88 },
+  { id: '3', name: 'Usman', age: 29, gender: 'male' as const, location: 'Lahore', education: 'Civil Engineer', compatibility: 90 },
+  { id: '4', name: 'Hamza', age: 31, gender: 'male' as const, location: 'Karachi', education: 'Banking', compatibility: 86 },
 ];
 
 export function FavoritesScreen({ navigation }: any) {
+  const { selectedGender } = useUser();
+
+  const targetGender = useMemo(() => {
+    if (selectedGender === 'male') return 'female';
+    if (selectedGender === 'female') return 'male';
+    return undefined;
+  }, [selectedGender]);
+
+  const visibleFavorites = useMemo(() => {
+    if (!targetGender) {
+      return favorites;
+    }
+
+    return favorites.filter((profile) => profile.gender === targetGender);
+  }, [targetGender]);
+
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
         <Text style={styles.title}>Favorites</Text>
         <View style={styles.headerSummary}>
-          <Text style={styles.summaryCount}>{favorites.length} saved profiles</Text>
-          <Text style={styles.summaryHint}>Your premium matches are highlighted for quick review.</Text>
+          <Text style={styles.summaryCount}>{visibleFavorites.length} saved profiles</Text>
+          <Text style={styles.summaryHint}>
+            {targetGender ? `Showing ${targetGender} profiles to match your discover preferences.` : 'Your premium matches are highlighted for quick review.'}
+          </Text>
         </View>
       </View>
       <FlatList
-        data={favorites}
+        data={visibleFavorites}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
@@ -31,7 +52,7 @@ export function FavoritesScreen({ navigation }: any) {
             compatibility={item.compatibility}
             tag="Favorite"
             actionLabel="Open"
-            onPress={() => navigation.navigate('ProfileDetail', { profile: item })}
+            onPress={() => navigation.navigate('ProfileDetail', { profile: { ...item, gender: item.gender } })}
             onSecondaryPress={() => {}}
           />
         )}

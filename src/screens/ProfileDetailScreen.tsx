@@ -5,6 +5,7 @@ import { theme } from '../theme';
 import { useUser } from '../context/UserContext';
 import { LoginPromptModal } from '../components/common/LoginPromptModal';
 import { ModernMuslimAvatar } from '../components/common/ModernMuslimAvatar';
+import { AppBottomNav } from '../components/common/AppBottomNav';
 
 export function ProfileDetailScreen({ route, navigation }: any) {
   const profile = route.params?.profile;
@@ -235,6 +236,8 @@ export function ProfileDetailScreen({ route, navigation }: any) {
         ) : null}
       </ScrollView>
 
+      <AppBottomNav activeTab="Discover" />
+
       {/* Login Prompt Modal for Guests */}
       <LoginPromptModal
         visible={showLoginPrompt}
@@ -280,7 +283,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    paddingBottom: 32,
+    paddingBottom: 110,
   },
   imageContainer: {
     position: 'relative',

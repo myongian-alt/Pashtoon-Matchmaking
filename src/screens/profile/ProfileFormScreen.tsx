@@ -22,6 +22,7 @@ import { RootStackParamList } from '../../navigation/AppNavigator';
 import { Country, City } from 'country-state-city';
 import { upsertCurrentUserProfile } from '../../lib/database';
 import { ModernMuslimAvatar } from '../../components/common/ModernMuslimAvatar';
+import { AppBottomNav } from '../../components/common/AppBottomNav';
 
 type ProfileFormNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ProfileForm'>;
 
@@ -259,6 +260,8 @@ export default function ProfileFormScreen() {
           </Pressable>
         ) : null}
       </ScrollView>
+
+      <AppBottomNav activeTab="Discover" />
     </View>
   );
 }

@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { theme } from '../theme';
+import { AppBottomNav } from '../components/common/AppBottomNav';
 
 const benefits = [
   'Unlimited likes and favorites',
@@ -15,50 +16,54 @@ export default function PremiumScreen() {
   const navigation = useNavigation();
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Khpalwali Premium</Text>
-      <Text style={styles.subtitle}>Unlock the full premium experience for serious families and trusted connections.</Text>
+    <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <Text style={styles.title}>Khpalwali Premium</Text>
+        <Text style={styles.subtitle}>Unlock the full premium experience for serious families and trusted connections.</Text>
 
-      <View style={styles.priceCard}>
-        <Text style={styles.priceTitle}>USD 30 / month</Text>
-        <Text style={styles.priceNote}>Billed monthly for unlimited access and priority features.</Text>
-      </View>
+        <View style={styles.priceCard}>
+          <Text style={styles.priceTitle}>USD 30 / month</Text>
+          <Text style={styles.priceNote}>Billed monthly for unlimited access and priority features.</Text>
+        </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionHeading}>Premium benefits</Text>
-        {benefits.map((item) => (
-          <View key={item} style={styles.benefitRow}>
-            <View style={styles.benefitDot} />
-            <Text style={styles.benefitLabel}>{item}</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionHeading}>Premium benefits</Text>
+          {benefits.map((item) => (
+            <View key={item} style={styles.benefitRow}>
+              <View style={styles.benefitDot} />
+              <Text style={styles.benefitLabel}>{item}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.paymentSection}>
+          <Text style={styles.paymentTitle}>Payment methods</Text>
+          <View style={styles.paymentRow}>
+            <Text style={styles.paymentMethod}>Credit Card</Text>
+            <Text style={styles.paymentMethod}>Apple Pay</Text>
           </View>
-        ))}
-      </View>
-
-      <View style={styles.paymentSection}>
-        <Text style={styles.paymentTitle}>Payment methods</Text>
-        <View style={styles.paymentRow}>
-          <Text style={styles.paymentMethod}>Credit Card</Text>
-          <Text style={styles.paymentMethod}>Apple Pay</Text>
+          <View style={styles.paymentRow}>
+            <Text style={styles.paymentMethod}>Google Pay</Text>
+            <Text style={styles.paymentMethod}>PayPal</Text>
+          </View>
+          <Text style={styles.paymentNote}>Also support local payment methods based on your region.</Text>
         </View>
-        <View style={styles.paymentRow}>
-          <Text style={styles.paymentMethod}>Google Pay</Text>
-          <Text style={styles.paymentMethod}>PayPal</Text>
-        </View>
-        <Text style={styles.paymentNote}>Also support local payment methods based on your region.</Text>
-      </View>
 
-      <Pressable style={styles.subscribeButton} onPress={() => {}}>
-        <Text style={styles.subscribeText}>Subscribe now</Text>
-      </Pressable>
+        <Pressable style={styles.subscribeButton} onPress={() => {}}>
+          <Text style={styles.subscribeText}>Subscribe now</Text>
+        </Pressable>
 
-      <Pressable style={styles.contactAdmin} onPress={() => {}}>
-        <Text style={styles.contactAdminText}>Contact Admin</Text>
-      </Pressable>
+        <Pressable style={styles.contactAdmin} onPress={() => {}}>
+          <Text style={styles.contactAdminText}>Contact Admin</Text>
+        </Pressable>
 
-      <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
-        <Text style={styles.backText}>Back to home</Text>
-      </Pressable>
-    </ScrollView>
+        <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Text style={styles.backText}>Back to home</Text>
+        </Pressable>
+      </ScrollView>
+
+      <AppBottomNav activeTab="Discover" />
+    </View>
   );
 }
 

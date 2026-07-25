@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { theme } from '../../theme';
 import { useUser } from '../../context/UserContext';
+import { AppBottomNav } from '../../components/common/AppBottomNav';
 
 export default function ProfileCompletionScreen() {
   const navigation = useNavigation();
@@ -32,8 +33,8 @@ export default function ProfileCompletionScreen() {
           <Text style={styles.messageTitle}>{profileCompleted ? 'Profile Completed' : 'Unlock Contact Details'}</Text>
           <Text style={styles.messageText}>
             {profileCompleted
-              ? 'Your profile is already completed. Continue with premium payment to unlock contact details.'
-              : 'To view contact information, complete your profile and proceed with payment.'}
+              ? 'Profile done. Complete payment to unlock contact details.'
+              : 'Complete your profile, then make one quick payment to unlock contact details.'}
           </Text>
         </View>
 
@@ -44,57 +45,41 @@ export default function ProfileCompletionScreen() {
 
         {/* Payment Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Premium Membership</Text>
-          
+          <Text style={styles.sectionTitle}>Premium Access</Text>
+
           <View style={styles.premiumCard}>
-            <View style={styles.planHeader}>
+            <View style={styles.planTopRow}>
+              <View style={styles.planHeader}>
               <MaterialCommunityIcons name="crown" size={28} color="#D4AF37" />
-              <Text style={styles.planTitle}>One-Time Premium</Text>
+                <Text style={styles.planTitle}>One-Time Premium</Text>
+              </View>
+              <Text style={styles.planPrice}>$30</Text>
             </View>
-            <Text style={styles.planPrice}>$30 USD</Text>
-            <Text style={styles.planDescription}>
-              Lifetime access to all premium features
-            </Text>
-            
-            <View style={styles.featuresList}>
-              <View style={styles.featureItem}>
-                <MaterialCommunityIcons name="check-circle" size={18} color={theme.colors.primary} />
-                <Text style={styles.featureText}>View all contact details</Text>
+            <Text style={styles.planDescription}>Lifetime access, no recurring charge.</Text>
+
+            <View style={styles.compactBenefitsRow}>
+              <View style={styles.compactBenefitPill}>
+                <MaterialCommunityIcons name="check-circle" size={14} color={theme.colors.primary} />
+                <Text style={styles.compactBenefitText}>Contact details</Text>
               </View>
-              <View style={styles.featureItem}>
-                <MaterialCommunityIcons name="check-circle" size={18} color={theme.colors.primary} />
-                <Text style={styles.featureText}>Unlimited messages</Text>
+              <View style={styles.compactBenefitPill}>
+                <MaterialCommunityIcons name="check-circle" size={14} color={theme.colors.primary} />
+                <Text style={styles.compactBenefitText}>Unlimited messages</Text>
               </View>
-              <View style={styles.featureItem}>
-                <MaterialCommunityIcons name="check-circle" size={18} color={theme.colors.primary} />
-                <Text style={styles.featureText}>Priority matching</Text>
-              </View>
-              <View style={styles.featureItem}>
-                <MaterialCommunityIcons name="check-circle" size={18} color={theme.colors.primary} />
-                <Text style={styles.featureText}>Video call support</Text>
+              <View style={styles.compactBenefitPill}>
+                <MaterialCommunityIcons name="check-circle" size={14} color={theme.colors.primary} />
+                <Text style={styles.compactBenefitText}>Priority matching</Text>
               </View>
             </View>
-          </View>
 
-          <View style={styles.paymentOptionsContainer}>
-            <Text style={styles.paymentOptionsTitle}>Payment Methods</Text>
-            
-            <Pressable style={styles.paymentOption} onPress={handlePayment}>
-              <MaterialCommunityIcons name="credit-card" size={20} color={theme.colors.primary} />
-              <Text style={styles.paymentOptionText}>Pay Online (Card)</Text>
-              <MaterialCommunityIcons name="chevron-right" size={20} color="#999" />
+            <Pressable style={styles.payNowButton} onPress={handlePayment}>
+              <MaterialCommunityIcons name="credit-card-check-outline" size={20} color="#fff" />
+              <Text style={styles.payNowButtonText}>Pay $30 and Unlock</Text>
             </Pressable>
 
-            <Pressable style={styles.paymentOption} onPress={handlePayment}>
-              <MaterialCommunityIcons name="bank-transfer" size={20} color={theme.colors.primary} />
-              <Text style={styles.paymentOptionText}>Bank Transfer</Text>
-              <MaterialCommunityIcons name="chevron-right" size={20} color="#999" />
-            </Pressable>
-
-            <Pressable style={styles.paymentOption} onPress={handlePayment}>
-              <MaterialCommunityIcons name="phone" size={20} color={theme.colors.primary} />
-              <Text style={styles.paymentOptionText}>Contact Admin</Text>
-              <MaterialCommunityIcons name="chevron-right" size={20} color="#999" />
+            <Pressable style={styles.adminHelpButton} onPress={handlePayment}>
+              <MaterialCommunityIcons name="message-outline" size={16} color={theme.colors.primary} />
+              <Text style={styles.adminHelpText}>Need bank transfer help? Contact admin</Text>
             </Pressable>
           </View>
         </View>
@@ -105,6 +90,8 @@ export default function ProfileCompletionScreen() {
           <Text style={styles.trustText}>Your payment is secure and encrypted</Text>
         </View>
       </ScrollView>
+
+      <AppBottomNav activeTab="Discover" />
     </SafeAreaView>
   );
 }
@@ -196,77 +183,89 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF5E5',
     borderRadius: 16,
     padding: 20,
-    marginBottom: 16,
     borderWidth: 1,
     borderColor: '#F0E0D0',
+  },
+  planTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
   },
   planHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
   },
   planTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: '#1F2924',
     marginLeft: 12,
     fontFamily: 'Georgia',
   },
   planPrice: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '800',
     color: '#D4AF37',
-    marginBottom: 8,
     fontFamily: 'Georgia',
   },
   planDescription: {
-    fontSize: 13,
+    fontSize: 12,
     color: theme.colors.textSecondary,
-    lineHeight: 18,
-    marginBottom: 16,
+    lineHeight: 16,
+    marginBottom: 14,
   },
-  featuresList: {
-    marginBottom: 16,
+  compactBenefitsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 14,
   },
-  featureItem: {
+  compactBenefitPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
-  },
-  featureText: {
-    fontSize: 13,
-    color: '#1F2924',
-    fontWeight: '600',
-    marginLeft: 10,
-  },
-  paymentOptionsContainer: {
-    marginBottom: 16,
-  },
-  paymentOptionsTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#1F2924',
-    marginBottom: 12,
-    fontFamily: 'Georgia',
-  },
-  paymentOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    marginBottom: 10,
     borderWidth: 1,
     borderColor: '#E8DDD0',
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    gap: 5,
   },
-  paymentOptionText: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '700',
+  compactBenefitText: {
+    fontSize: 11,
     color: '#1F2924',
-    marginLeft: 12,
+    fontWeight: '600',
+  },
+  payNowButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    backgroundColor: theme.colors.primary,
+    borderRadius: 12,
+    gap: 8,
+  },
+  payNowButtonText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#fff',
     fontFamily: 'Georgia',
+  },
+  adminHelpButton: {
+    marginTop: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  adminHelpText: {
+    fontSize: 12,
+    color: theme.colors.primary,
+    fontWeight: '700',
   },
   trustSection: {
     flexDirection: 'row',
