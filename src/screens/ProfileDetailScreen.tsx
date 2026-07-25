@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View, Image } from 'react-native';
+import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../theme';
 import { useUser } from '../context/UserContext';
 import { LoginPromptModal } from '../components/common/LoginPromptModal';
 import { ModernMuslimAvatar } from '../components/common/ModernMuslimAvatar';
 import { AppBottomNav } from '../components/common/AppBottomNav';
+import { sendConnectionRequest } from '../lib/database';
 
 export function ProfileDetailScreen({ route, navigation }: any) {
   const profile = route.params?.profile;
   const { isGuest, paymentCompleted } = useUser();
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [sendingInterest, setSendingInterest] = useState(false);
+  const [interestSent, setInterestSent] = useState(false);
   const isSelfProfile = Boolean(profile?.isSelfProfile);
   const galleryPhotos = Array.isArray(profile?.galleryPhotos)
     ? profile.galleryPhotos.filter((uri: unknown) => typeof uri === 'string' && uri.length > 0)
@@ -45,6 +48,36 @@ export function ProfileDetailScreen({ route, navigation }: any) {
 
   const handleEditMyProfile = () => {
     navigation.navigate('ProfileForm' as never);
+  };
+
+  const handleSendInterest = async () => {
+    if (isGuest) {
+      setShowLoginPrompt(true);
+      return;
+    }
+
+    if (!profile?.userId) {
+      Alert.alert('Not available', 'This demo profile is not connected to a real account yet.');
+      return;
+    }
+
+    setSendingInterest(true);
+    const result = await sendConnectionRequest(profile.userId);
+    setSendingInterest(false);
+
+    if (result.error) {
+      const message =
+        typeof result.error === 'string' ? result.error : (result.error as any)?.message || '';
+      if (message.includes('23505') || message.toLowerCase().includes('duplicate')) {
+        Alert.alert('Already sent', 'You already sent an interest request to this profile.');
+      } else {
+        Alert.alert('Could not send interest', 'Please try again.');
+      }
+      return;
+    }
+
+    setInterestSent(true);
+    Alert.alert('Interest sent', 'Your interest has been sent successfully.');
   };
 
   return (
@@ -222,9 +255,15 @@ export function ProfileDetailScreen({ route, navigation }: any) {
 
         {/* Send Interest Button */}
         {!isSelfProfile ? (
-          <Pressable style={styles.actionButton} onPress={() => {}}>
+          <Pressable
+            style={[styles.actionButton, (sendingInterest || interestSent) && styles.actionButtonDisabled]}
+            onPress={handleSendInterest}
+            disabled={sendingInterest || interestSent}
+          >
             <MaterialCommunityIcons name="heart-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
-            <Text style={styles.actionLabel}>Send Interest</Text>
+            <Text style={styles.actionLabel}>
+              {interestSent ? 'Interest Sent' : sendingInterest ? 'Sending...' : 'Send Interest'}
+            </Text>
           </Pressable>
         ) : null}
 
@@ -459,6 +498,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
+  },
+  actionButtonDisabled: {
+    opacity: 0.6,
   },
   actionLabel: {
     color: '#fff',

@@ -5,6 +5,7 @@ import ProfileDiscoveryScreen from '../screens/ProfileDiscoveryScreen';
 import HomeScreen from '../screens/HomeScreen';
 import { FavoritesScreen } from '../screens/FavoritesScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
+import AccountScreen from '../screens/AccountScreen';
 import { theme } from '../theme';
 import { useNotifications } from '../context/NotificationsContext';
 
@@ -38,6 +39,7 @@ export default function TabNavigator() {
           if (route.name === 'Home') iconName = 'home';
           if (route.name === 'Favorites') iconName = 'heart';
           if (route.name === 'Notifications') iconName = 'bell';
+          if (route.name === 'Account') iconName = 'account-circle';
 
           return <MaterialCommunityIcons name={iconName} size={size} color={color} />;
         },
@@ -58,6 +60,7 @@ export default function TabNavigator() {
           },
         }}
       />
+      <Tab.Screen name="Account" component={AccountScreen} options={{ tabBarLabel: 'Account' }} />
     </Tab.Navigator>
   );
 }

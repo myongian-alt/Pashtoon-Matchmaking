@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -14,10 +17,12 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { theme } from '../../theme';
 import { AuthButton } from '../../components/common/AuthButton';
 import { useUser } from '../../context/UserContext';
-import { signInWithEmail, signUpWithEmail } from '../../lib/auth';
+import { signInWithEmail, signUpWithEmail, resetPassword } from '../../lib/auth';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 
 type EmailAuthNavigationProp = NativeStackNavigationProp<RootStackParamList, 'EmailAuth'>;
+
+const MIN_PASSWORD_LENGTH = 8;
 
 export default function EmailAuthScreen() {
   const navigation = useNavigation<EmailAuthNavigationProp>();
@@ -28,14 +33,36 @@ export default function EmailAuthScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [sendingReset, setSendingReset] = useState(false);
+
+  const handleSendResetLink = async () => {
+    if (!resetEmail.trim()) {
+      Alert.alert('Enter your email', 'Please enter the email address for your account.');
+      return;
+    }
+
+    setSendingReset(true);
+    const response = await resetPassword(resetEmail.trim());
+    setSendingReset(false);
+    setShowForgotPassword(false);
+
+    if (response.success) {
+      Alert.alert('Check your email', 'If an account exists for that email, a password reset link has been sent.');
+    } else {
+      Alert.alert('Could not send reset link', response.error?.message || 'Please try again.');
+    }
+  };
+
   const handleContinue = async () => {
     if (!email.trim() || !password.trim()) {
       setError('Please enter email and password');
       return;
     }
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
       return;
     }
 
@@ -116,9 +143,21 @@ export default function EmailAuthScreen() {
             editable={!loading}
           />
           {isSignUp && (
-            <Text style={styles.helperText}>At least 6 characters</Text>
+            <Text style={styles.helperText}>At least {MIN_PASSWORD_LENGTH} characters</Text>
           )}
         </View>
+
+        {!isSignUp && (
+          <Pressable
+            style={styles.forgotPasswordButton}
+            onPress={() => {
+              setResetEmail(email);
+              setShowForgotPassword(true);
+            }}
+          >
+            <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+          </Pressable>
+        )}
 
         {error && <Text style={styles.errorText}>{error}</Text>}
 
@@ -150,6 +189,48 @@ export default function EmailAuthScreen() {
           you choose to connect.
         </Text>
       </View>
+
+      <Modal
+        visible={showForgotPassword}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowForgotPassword(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <Text style={styles.modalTitle}>Reset your password</Text>
+            <Text style={styles.modalSubtitle}>
+              Enter your account email and we'll send you a link to reset your password.
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              value={resetEmail}
+              onChangeText={setResetEmail}
+              placeholder="you@example.com"
+              placeholderTextColor={theme.colors.border}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <View style={styles.modalActions}>
+              <Pressable
+                style={styles.modalCancelButton}
+                onPress={() => setShowForgotPassword(false)}
+                disabled={sendingReset}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={styles.modalSendButton}
+                onPress={handleSendResetLink}
+                disabled={sendingReset}
+              >
+                <Text style={styles.modalSendText}>{sendingReset ? 'Sending...' : 'Send Link'}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -200,6 +281,77 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: theme.colors.muted,
     marginTop: 8,
+  },
+  forgotPasswordButton: {
+    alignSelf: 'flex-end',
+    marginBottom: 16,
+  },
+  forgotPasswordText: {
+    color: theme.colors.primary,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(12, 12, 12, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: theme.colors.surface,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 24,
+    paddingBottom: 34,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: theme.colors.text,
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: theme.colors.textSecondary,
+    lineHeight: 20,
+    marginBottom: 18,
+  },
+  modalInput: {
+    backgroundColor: theme.colors.background,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: theme.colors.text,
+    marginBottom: 20,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalCancelButton: {
+    flex: 1,
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  modalCancelText: {
+    color: theme.colors.textSecondary,
+    fontWeight: '700',
+  },
+  modalSendButton: {
+    flex: 1,
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+    backgroundColor: theme.colors.primary,
+  },
+  modalSendText: {
+    color: '#fff',
+    fontWeight: '700',
   },
   errorText: {
     color: '#E74C3C',

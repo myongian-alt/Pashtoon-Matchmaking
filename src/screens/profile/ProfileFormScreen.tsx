@@ -6,7 +6,6 @@ import {
   View,
   Pressable,
   TextInput,
-  FlatList,
   Modal,
   Alert,
   Image,
@@ -20,14 +19,36 @@ import { useUser } from '../../context/UserContext';
 import * as ImagePicker from 'expo-image-picker';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { Country, City } from 'country-state-city';
-import { upsertCurrentUserProfile } from '../../lib/database';
+import { upsertCurrentUserProfile, syncProfilePhotos } from '../../lib/database';
+import { uploadProfilePhotoAsset } from '../../lib/storage';
+import { buildSelfProfileFromForm } from '../../lib/selfProfile';
 import { ModernMuslimAvatar } from '../../components/common/ModernMuslimAvatar';
 import { AppBottomNav } from '../../components/common/AppBottomNav';
 
 type ProfileFormNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ProfileForm'>;
+type FormPhase = 'required' | 'optional';
 
-const sections = [
-  { title: 'Basic Info', icon: 'account' },
+// Everything a profile needs to be usable for matching. Validated before the
+// user can move past this phase - there's no way to skip these.
+const MANDATORY_FIELDS: any[] = [
+  { key: 'name', label: 'Full Name', type: 'text' },
+  { key: 'dateOfBirth', label: 'Date of Birth', type: 'text', placeholder: 'YYYY-MM-DD' },
+  { key: 'phoneNumber', label: 'Phone Number', type: 'text' },
+  { key: 'maritalStatus', label: 'Marital Status', type: 'dropdown', options: ['Single', 'Married', 'Divorced', 'Widowed', 'Separated'] },
+  { key: 'nationality', label: 'Country', type: 'dropdown', options: [] },
+  { key: 'currentCity', label: 'Current City', type: 'dropdown', options: [] },
+  { key: 'educationLevel', label: 'Education', type: 'dropdown', options: ['High School', 'Bachelors', 'Masters', 'PhD', 'Diploma'] },
+  { key: 'profession', label: 'Profession', type: 'dropdown', options: ['Engineer', 'Doctor', 'Lawyer', 'Business', 'Teaching', 'Government', 'IT', 'Finance', 'Healthcare', 'Other'] },
+];
+
+function getMissingMandatoryFields(formData: any): string[] {
+  return MANDATORY_FIELDS.filter((field) => !String(formData[field.key] || '').trim()).map((field) => field.label);
+}
+
+// Everything else - the user can browse as much or as little of this as they
+// want, and finish at any point without visiting every section.
+const optionalSections = [
+  { title: 'Photos', icon: 'image-multiple' },
   { title: 'Physical', icon: 'heart-pulse' },
   { title: 'Career', icon: 'briefcase' },
   { title: 'Financial', icon: 'cash' },
@@ -37,20 +58,13 @@ const sections = [
   { title: 'Emotional', icon: 'brain' },
   { title: 'Lifestyle', icon: 'palette' },
   { title: 'Marriage', icon: 'heart-multiple' },
-  { title: 'Photos', icon: 'image-multiple' },
 ];
 
-const fieldConfigs: { [key: number]: any[] } = {
-  0: [ // Basic Info
+const optionalFieldConfigs: { [key: number]: any[] } = {
+  0: [ // Photos
     { key: 'profilePhoto', label: 'Choose Your Photo', type: 'avatar' },
-    { key: 'phoneNumber', label: 'Phone Number *', type: 'text', mandatory: true },
-    { key: 'maritalStatus', label: 'Marital Status *', type: 'dropdown', mandatory: true, options: ['Single', 'Divorced', 'Widowed', 'Separated'] },
-    { key: 'nationality', label: 'Country *', type: 'dropdown', mandatory: true, options: [] },
-    { key: 'currentCity', label: 'Current City *', type: 'dropdown', mandatory: true, options: [] },
-    { key: 'educationLevel', label: 'Education *', type: 'dropdown', mandatory: true, options: ['High School', 'Bachelors', 'Masters', 'PhD', 'Diploma'] },
-    { key: 'profession', label: 'Profession *', type: 'dropdown', mandatory: true, options: ['Engineer', 'Doctor', 'Lawyer', 'Business', 'Teaching', 'Government', 'IT', 'Finance', 'Healthcare', 'Other'] },
-    { key: 'name', label: 'Full Name', type: 'text' },
-    { key: 'dateOfBirth', label: 'Date of Birth', type: 'text', placeholder: 'YYYY-MM-DD' },
+    { key: 'galleryPhotos', label: 'Gallery Photos', type: 'gallery' },
+    { key: 'aboutMe', label: 'About Me', type: 'textarea' },
   ],
   1: [ // Physical & Health
     { key: 'height', label: 'Height', type: 'dropdown', options: ['4\'10"', '4\'11"', '5\'0"', '5\'2"', '5\'4"', '5\'6"', '5\'8"', '5\'10"', '6\'0"', '6\'2"', '6\'4"'] },
@@ -62,7 +76,6 @@ const fieldConfigs: { [key: number]: any[] } = {
     { key: 'exerciseFrequency', label: 'Exercise Frequency', type: 'dropdown', options: ['Never', '1-2x/week', '3-4x/week', '5-6x/week', 'Daily'] },
   ],
   2: [ // Career
-    { key: 'profession', label: 'Profession *', type: 'dropdown', mandatory: true, options: ['Engineer', 'Doctor', 'Lawyer', 'Business', 'Teaching', 'Government', 'IT', 'Finance', 'Healthcare', 'Other'] },
     { key: 'employmentStatus', label: 'Employment Status', type: 'dropdown', options: ['Employed', 'Self-Employed', 'Business Owner', 'Freelancer', 'Student', 'Homemaker', 'Retired'] },
     { key: 'monthlyIncome', label: 'Monthly Income', type: 'dropdown', options: ['Not specified', 'Under 50K', '50K-100K', '100K-200K', '200K-500K', '500K-1M', '1M+'] },
     { key: 'degreeeName', label: 'Degree Name', type: 'text', placeholder: 'e.g., BS Computer Science' },
@@ -118,16 +131,15 @@ const fieldConfigs: { [key: number]: any[] } = {
     { key: 'expectedKids', label: 'Expected Kids', type: 'dropdown', options: ['0', '1', '2', '3', '3+', 'Undecided'] },
     { key: 'idealMarriage', label: 'About Me & Marriage Vision', type: 'textarea' },
   ],
-  10: [ // Media & Photos
-    { key: 'galleryPhotos', label: 'Gallery Photos', type: 'gallery' },
-    { key: 'aboutMe', label: 'About Me', type: 'textarea' },
-  ],
 };
 
 export default function ProfileFormScreen() {
   const navigation = useNavigation<ProfileFormNavigationProp>();
   const { formData, updateField, calculateProfileStrength } = useForm();
-  const { setProfileCompleted, selectedGender, isAuthenticated } = useUser();
+  const { setProfileCompleted, selectedGender, isAuthenticated, userId } = useUser();
+  const [phase, setPhase] = useState<FormPhase>(() =>
+    getMissingMandatoryFields(formData).length === 0 ? 'optional' : 'required'
+  );
   const [currentSection, setCurrentSection] = useState(0);
   const [savingProfile, setSavingProfile] = useState(false);
   const profileStrength = calculateProfileStrength();
@@ -153,53 +165,113 @@ export default function ProfileFormScreen() {
     return names.sort((a, b) => a.localeCompare(b));
   }, [selectedCountryCode]);
 
-  const buildSelfProfile = () => ({
-    id: 'self',
-    name: formData.name || 'Your Profile',
-    age: formData.dateOfBirth ? Math.max(18, new Date().getFullYear() - Number(formData.dateOfBirth.split('-')[0])) : 0,
-    gender: selectedGender || 'male',
-    maritalStatus: formData.maritalStatus || 'Not set',
-    cityOfBirth: formData.cityOfBirth || 'Not set',
-    currentCity: formData.currentCity || 'Not set',
-    nationality: formData.nationality || 'Not set',
-    education: formData.educationLevel || formData.degreeeName || 'Not set',
-    profession: formData.profession || 'Not set',
-    location: [formData.currentCity, formData.nationality].filter(Boolean).join(', ') || 'Not set',
-    height: formData.height || 'Not set',
-    bodyType: formData.bodyType || 'Not set',
-    aboutMe: formData.aboutMe || '',
-    lifestyle: formData.outlook || '',
-    values: formData.importantValue || '',
-    personality: formData.personality || '',
-    image: formData.profilePhoto || null,
-    galleryPhotos: Array.isArray(formData.galleryPhotos) ? formData.galleryPhotos : [],
-    isSelfProfile: true,
-  });
-
   const handleViewMyProfile = () => {
-    navigation.navigate('ProfileDetail', { profile: buildSelfProfile() });
+    navigation.navigate('ProfileDetail', { profile: buildSelfProfileFromForm(formData, selectedGender) });
   };
 
-  const handleNext = async () => {
-    if (currentSection < sections.length - 1) {
-      setCurrentSection(currentSection + 1);
-    } else {
-      if (isAuthenticated) {
-        setSavingProfile(true);
-        const result = await upsertCurrentUserProfile(formData, selectedGender || 'male');
-        setSavingProfile(false);
+  const updateFieldByKey = (key: string, value: string) => {
+    if (key === 'nationality') {
+      updateField('nationality', value);
+      updateField('currentCity', '');
+      return;
+    }
 
-        if (result.error) {
-          Alert.alert('Profile Save Failed', result.error.message || 'Unable to save your profile right now.');
-          return;
-        }
+    updateField(key as any, value);
+  };
+
+  const handleRequiredContinue = () => {
+    const missing = getMissingMandatoryFields(formData);
+    if (missing.length > 0) {
+      Alert.alert('Missing required information', `Please complete: ${missing.join(', ')}`);
+      return;
+    }
+
+    setPhase('optional');
+  };
+
+  const handleFinishProfile = async () => {
+    const missing = getMissingMandatoryFields(formData);
+    if (missing.length > 0) {
+      Alert.alert('Missing required information', `Please complete: ${missing.join(', ')}`);
+      setPhase('required');
+      return;
+    }
+
+    if (isAuthenticated) {
+      setSavingProfile(true);
+      const formDataWithStrength = { ...formData, profileStrength };
+      const result = await upsertCurrentUserProfile(formDataWithStrength, selectedGender || 'male');
+
+      if (result.error || !result.data) {
+        setSavingProfile(false);
+        Alert.alert('Profile Save Failed', result.error?.message || 'Unable to save your profile right now.');
+        return;
       }
 
-      // Persist completion so user is not prompted to re-complete the form.
-      setProfileCompleted(true);
-      navigation.navigate('ProfileCompletion');
+      if (userId) {
+        await syncProfilePhotos(userId, result.data.id, {
+          profilePhoto: formData.profilePhoto,
+          galleryPhotos: formData.galleryPhotos,
+        });
+      }
+
+      setSavingProfile(false);
     }
+
+    // Persist completion so user is not prompted to re-complete the form.
+    setProfileCompleted(true);
+    navigation.navigate('ProfileCompletion');
   };
+
+  if (phase === 'required') {
+    const resolvedFields = MANDATORY_FIELDS.map((field) => {
+      if (field.key === 'nationality') return { ...field, options: countryOptions };
+      if (field.key === 'currentCity') return { ...field, options: cityOptions };
+      return field;
+    });
+
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
+            <MaterialCommunityIcons name="chevron-left" size={28} color={theme.colors.primary} />
+          </Pressable>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.headerTitle}>Required Information</Text>
+            <View style={styles.progressBar}>
+              <View style={[styles.progressFill, { width: `${profileStrength}%` }]} />
+            </View>
+            <Text style={styles.progressText}>{profileStrength}%</Text>
+          </View>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.content}>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Tell us about yourself</Text>
+            <Text style={styles.sectionSubtitle}>
+              These details are required so matches can find and understand your profile.
+            </Text>
+            {resolvedFields.map((field) => (
+              <FormField
+                key={field.key}
+                field={field}
+                value={String(formData[field.key as keyof typeof formData] ?? '')}
+                onChange={(v) => updateFieldByKey(field.key, v)}
+              />
+            ))}
+          </View>
+
+          <Pressable style={styles.buttonPrimaryFull} onPress={handleRequiredContinue}>
+            <Text style={styles.buttonPrimaryText}>Continue</Text>
+          </Pressable>
+        </ScrollView>
+
+        <AppBottomNav activeTab="Discover" />
+      </View>
+    );
+  }
+
+  const isLastOptionalSection = currentSection === optionalSections.length - 1;
 
   return (
     <View style={styles.container}>
@@ -208,7 +280,7 @@ export default function ProfileFormScreen() {
           <MaterialCommunityIcons name="chevron-left" size={28} color={theme.colors.primary} />
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Complete Profile</Text>
+          <Text style={styles.headerTitle}>Additional Details</Text>
           <View style={styles.progressBar}>
             <View style={[styles.progressFill, { width: `${profileStrength}%` }]} />
           </View>
@@ -217,8 +289,19 @@ export default function ProfileFormScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
+        <Pressable style={styles.editRequiredLink} onPress={() => setPhase('required')}>
+          <MaterialCommunityIcons name="pencil-outline" size={14} color={theme.colors.primary} />
+          <Text style={styles.editRequiredLinkText}>Edit required information</Text>
+        </Pressable>
+
+        <Text style={styles.optionalIntro}>
+          Everything below is optional. Add as much or as little as you like, or finish now.
+        </Text>
+
+        <ProfilePreview formData={formData} />
+
         <View style={styles.sectionNav}>
-          {sections.map((section, index) => (
+          {optionalSections.map((section, index) => (
             <Pressable
               key={index}
               style={[styles.sectionButton, currentSection === index && styles.sectionButtonActive]}
@@ -230,12 +313,10 @@ export default function ProfileFormScreen() {
           ))}
         </View>
 
-        <SectionRenderer
+        <OptionalSectionRenderer
           section={currentSection}
           formData={formData}
-          countryOptions={countryOptions}
-          cityOptions={cityOptions}
-          updateField={(key: string, value: string) => updateField(key as any, value)}
+          updateField={updateFieldByKey}
         />
 
         <View style={styles.navigationButtons}>
@@ -246,19 +327,27 @@ export default function ProfileFormScreen() {
           >
             <Text style={[styles.buttonText, currentSection === 0 && styles.buttonTextDisabled]}>← Previous</Text>
           </Pressable>
-          <Pressable style={styles.buttonPrimary} onPress={handleNext} disabled={savingProfile}>
+          <Pressable
+            style={styles.buttonPrimary}
+            onPress={isLastOptionalSection ? handleFinishProfile : () => setCurrentSection(currentSection + 1)}
+            disabled={savingProfile}
+          >
             <Text style={styles.buttonPrimaryText}>
-              {currentSection === sections.length - 1 ? (savingProfile ? 'Saving...' : 'Save & Continue') : 'Next →'}
+              {isLastOptionalSection ? (savingProfile ? 'Saving...' : 'Finish Profile') : 'Next →'}
             </Text>
           </Pressable>
         </View>
 
-        {currentSection === sections.length - 1 ? (
-          <Pressable style={styles.viewProfileButton} onPress={handleViewMyProfile}>
-            <MaterialCommunityIcons name="eye-outline" size={18} color={theme.colors.primary} />
-            <Text style={styles.viewProfileButtonText}>View My Profile</Text>
+        {!isLastOptionalSection && (
+          <Pressable style={styles.skipButton} onPress={handleFinishProfile} disabled={savingProfile}>
+            <Text style={styles.skipButtonText}>{savingProfile ? 'Saving...' : 'Skip remaining & finish'}</Text>
           </Pressable>
-        ) : null}
+        )}
+
+        <Pressable style={styles.viewProfileButton} onPress={handleViewMyProfile}>
+          <MaterialCommunityIcons name="eye-outline" size={18} color={theme.colors.primary} />
+          <Text style={styles.viewProfileButtonText}>View My Profile</Text>
+        </Pressable>
       </ScrollView>
 
       <AppBottomNav activeTab="Discover" />
@@ -266,71 +355,28 @@ export default function ProfileFormScreen() {
   );
 }
 
-function SectionRenderer({
+function OptionalSectionRenderer({
   section,
   formData,
   updateField,
-  countryOptions,
-  cityOptions,
 }: {
   section: number;
   formData: any;
   updateField: (key: string, value: string) => void;
-  countryOptions: string[];
-  cityOptions: string[];
 }) {
-  const sectionTitle = sections[section].title;
-  const fields = fieldConfigs[section] || [];
-
-  if (section === 10) {
-    return (
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{sectionTitle}</Text>
-        <ProfilePreview formData={formData} />
-        {fields.map((field) => (
-          <FormField
-            key={field.key}
-            field={field}
-            value={formData[field.key as keyof typeof formData] || ''}
-            onChange={(v) => updateField(field.key as any, v)}
-          />
-        ))}
-      </View>
-    );
-  }
+  const sectionTitle = optionalSections[section].title;
+  const fields = optionalFieldConfigs[section] || [];
 
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{sectionTitle}</Text>
       {fields.map((field) => (
-        (() => {
-          const resolvedField = { ...field };
-
-          if (resolvedField.key === 'nationality') {
-            resolvedField.options = countryOptions;
-          }
-
-          if (resolvedField.key === 'currentCity') {
-            resolvedField.options = cityOptions;
-          }
-
-          return (
         <FormField
-              key={resolvedField.key}
-              field={resolvedField}
-              value={formData[resolvedField.key as keyof typeof formData] || ''}
-              onChange={(v) => {
-                if (resolvedField.key === 'nationality') {
-                  updateField('nationality', v);
-                  updateField('currentCity', '');
-                  return;
-                }
-
-                updateField(resolvedField.key as any, v);
-              }}
+          key={field.key}
+          field={field}
+          value={formData[field.key as keyof typeof formData] || ''}
+          onChange={(v) => updateField(field.key, v)}
         />
-          );
-        })()
       ))}
     </View>
   );
@@ -339,8 +385,6 @@ function SectionRenderer({
 function ProfilePreview({ formData }: { formData: any }) {
   const optionalFields: { [key: string]: string } = {
     profilePhoto: 'Profile Photo',
-    name: 'Full Name',
-    dateOfBirth: 'Date of Birth',
     height: 'Height',
     weight: 'Weight',
     bodyType: 'Body Type',
@@ -369,7 +413,7 @@ function ProfilePreview({ formData }: { formData: any }) {
         <MaterialCommunityIcons name="eye" size={20} color={theme.colors.primary} />
         <Text style={styles.previewTitle}>Profile Preview</Text>
       </View>
-      
+
       {filledOptional.length > 0 ? (
         <View style={styles.previewContent}>
           <Text style={styles.previewSubtitle}>Filled Information ({filledOptional.length})</Text>
@@ -392,8 +436,10 @@ function ProfilePreview({ formData }: { formData: any }) {
 
 function FormField({ field, value, onChange }: { field: any; value: string; onChange: (v: string) => void }) {
   const { formData, updateField } = useForm();
+  const { userId } = useUser();
   const [showDropdown, setShowDropdown] = useState(false);
   const [dropdownQuery, setDropdownQuery] = useState('');
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const handlePickImage = async (target: 'profilePhoto' | 'gallery', index?: number) => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -414,7 +460,23 @@ function FormField({ field, value, onChange }: { field: any; value: string; onCh
       return;
     }
 
-    const uri = result.assets[0].uri;
+    let uri = result.assets[0].uri;
+
+    if (userId) {
+      const photoType = target === 'profilePhoto' ? 'profile_picture' : 'gallery';
+      const currentGalleryLength = Array.isArray(formData.galleryPhotos) ? formData.galleryPhotos.length : 0;
+      const slotIndex = target === 'profilePhoto' ? 0 : typeof index === 'number' ? index : currentGalleryLength;
+
+      setUploadingPhoto(true);
+      const uploadResult = await uploadProfilePhotoAsset(userId, uri, photoType, slotIndex);
+      setUploadingPhoto(false);
+
+      if (uploadResult.error || !uploadResult.publicUrl) {
+        Alert.alert('Upload failed', 'Could not upload this photo. It will only be saved on this device for now.');
+      } else {
+        uri = uploadResult.publicUrl;
+      }
+    }
 
     if (target === 'profilePhoto') {
       updateField('profilePhoto', uri);
@@ -439,7 +501,6 @@ function FormField({ field, value, onChange }: { field: any; value: string; onCh
       <View style={styles.fieldContainer}>
         <View style={styles.labelRow}>
           <Text style={styles.label}>{field.label}</Text>
-          {field.mandatory && <Text style={styles.mandatory}>*</Text>}
         </View>
         <TextInput
           style={styles.input}
@@ -457,7 +518,6 @@ function FormField({ field, value, onChange }: { field: any; value: string; onCh
       <View style={styles.fieldContainer}>
         <View style={styles.labelRow}>
           <Text style={styles.label}>{field.label}</Text>
-          {field.mandatory && <Text style={styles.mandatory}>*</Text>}
         </View>
         <TextInput
           style={[styles.input, styles.inputMultiline]}
@@ -504,7 +564,6 @@ function FormField({ field, value, onChange }: { field: any; value: string; onCh
       <View style={styles.fieldContainer}>
         <View style={styles.labelRow}>
           <Text style={styles.label}>{field.label}</Text>
-          {field.mandatory && <Text style={styles.mandatory}>*</Text>}
         </View>
         <Pressable
           style={styles.dropdownButton}
@@ -566,7 +625,9 @@ function FormField({ field, value, onChange }: { field: any; value: string; onCh
     return (
       <View style={styles.fieldContainer}>
         <Text style={styles.label}>{field.label}</Text>
-        <Text style={styles.avatarSubtext}>Select a profile photo or upload your own</Text>
+        <Text style={styles.avatarSubtext}>
+          {uploadingPhoto ? 'Uploading photo...' : 'Select a profile photo or upload your own'}
+        </Text>
         {isImageUri && (
           <View style={styles.avatarPreviewContainer}>
             <Image source={{ uri: value }} style={styles.avatarPreviewImage} />
@@ -576,6 +637,7 @@ function FormField({ field, value, onChange }: { field: any; value: string; onCh
           <Pressable
             style={[styles.avatarOption, value === 'male-avatar' && styles.avatarOptionSelected]}
             onPress={() => onChange('male-avatar')}
+            disabled={uploadingPhoto}
           >
             <ModernMuslimAvatar gender="male" size={64} />
             <Text style={[styles.avatarOptionText, value === 'male-avatar' && styles.avatarOptionTextSelected]}>Male Avatar</Text>
@@ -583,11 +645,12 @@ function FormField({ field, value, onChange }: { field: any; value: string; onCh
           <Pressable
             style={[styles.avatarOption, value === 'female-avatar' && styles.avatarOptionSelected]}
             onPress={() => onChange('female-avatar')}
+            disabled={uploadingPhoto}
           >
             <ModernMuslimAvatar gender="female" size={64} />
             <Text style={[styles.avatarOptionText, value === 'female-avatar' && styles.avatarOptionTextSelected]}>Female Avatar</Text>
           </Pressable>
-          <Pressable style={styles.avatarOption} onPress={() => handlePickImage('profilePhoto')}>
+          <Pressable style={styles.avatarOption} onPress={() => handlePickImage('profilePhoto')} disabled={uploadingPhoto}>
             <MaterialCommunityIcons name="cloud-upload" size={40} color="#999" />
             <Text style={styles.avatarOptionText}>Upload Photo</Text>
           </Pressable>
@@ -602,7 +665,9 @@ function FormField({ field, value, onChange }: { field: any; value: string; onCh
     return (
       <View style={styles.fieldContainer}>
         <Text style={styles.label}>{field.label}</Text>
-        <Text style={styles.avatarSubtext}>Add up to 5 photos to your gallery</Text>
+        <Text style={styles.avatarSubtext}>
+          {uploadingPhoto ? 'Uploading photo...' : 'Add up to 5 photos to your gallery'}
+        </Text>
         <View style={styles.galleryContainer}>
           {Array.from({ length: 5 }).map((_, index) => {
             const imageUri = galleryPhotos[index];
@@ -612,6 +677,7 @@ function FormField({ field, value, onChange }: { field: any; value: string; onCh
                 key={index}
                 style={[styles.galleryPlaceholder, imageUri ? styles.galleryFilled : null]}
                 onPress={() => handlePickImage('gallery', index)}
+                disabled={uploadingPhoto}
               >
                 {imageUri ? (
                   <Image source={{ uri: imageUri }} style={styles.galleryImage} />
@@ -642,6 +708,10 @@ const styles = StyleSheet.create({
   progressFill: { height: '100%', backgroundColor: theme.colors.primary },
   progressText: { fontSize: 12, color: theme.colors.textSecondary, fontWeight: '600' },
   content: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 32 },
+  sectionSubtitle: { fontSize: 12, color: theme.colors.textSecondary, marginBottom: 14, lineHeight: 17 },
+  editRequiredLink: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10, alignSelf: 'flex-start' },
+  editRequiredLinkText: { fontSize: 12, fontWeight: '700', color: theme.colors.primary },
+  optionalIntro: { fontSize: 12, color: theme.colors.textSecondary, marginBottom: 14, lineHeight: 17 },
   sectionNav: { marginBottom: 20 },
   sectionButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, backgroundColor: '#FFF5E5', borderRadius: 10, marginBottom: 6, borderWidth: 1, borderColor: '#F0E0D0', gap: 6 },
   sectionButtonActive: { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary },
@@ -652,7 +722,6 @@ const styles = StyleSheet.create({
   fieldContainer: { marginBottom: 14 },
   labelRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
   label: { fontSize: 13, fontWeight: '600', color: '#1F2924' },
-  mandatory: { color: '#D32F2F', marginLeft: 4, fontWeight: '800', fontSize: 12 },
   input: { borderWidth: 1, borderColor: '#E3D4C4', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 12, fontSize: 13, color: '#1F2924', backgroundColor: '#FFFFFF' },
   inputMultiline: { textAlignVertical: 'top', minHeight: 90 },
   yesnoContainer: { flexDirection: 'row', gap: 10 },
@@ -691,7 +760,19 @@ const styles = StyleSheet.create({
   buttonText: { fontSize: 13, fontWeight: '700', color: theme.colors.primary },
   buttonTextDisabled: { color: '#ccc' },
   buttonPrimary: { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: theme.colors.primary, alignItems: 'center', justifyContent: 'center' },
+  buttonPrimaryFull: { paddingVertical: 14, borderRadius: 10, backgroundColor: theme.colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   buttonPrimaryText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  skipButton: {
+    marginTop: 12,
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  skipButtonText: {
+    color: theme.colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+  },
   viewProfileButton: {
     marginTop: 12,
     borderRadius: 10,

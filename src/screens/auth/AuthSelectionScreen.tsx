@@ -120,16 +120,6 @@ export default function AuthSelectionScreen() {
           <MaterialCommunityIcons name="chevron-right" size={20} color="#134E36" style={styles.chevron} />
         </Pressable>
 
-        {/* Gmail Option */}
-        <Pressable style={[styles.methodCard, styles.gmailCard]} onPress={() => navigation.navigate('EmailAuth' as never)}>
-          <View style={[styles.methodIcon, styles.gmailIcon]}>
-            <MaterialCommunityIcons name="gmail" size={24} color="#FFFFFF" />
-          </View>
-          <Text style={styles.methodLabel}>Gmail</Text>
-          <Text style={styles.methodDescription}>Quick login with Google</Text>
-          <MaterialCommunityIcons name="chevron-right" size={20} color="#D32F2F" style={styles.chevron} />
-        </Pressable>
-
         {/* Phone Option */}
         <Pressable style={styles.methodCard} onPress={() => navigation.navigate('PhoneAuth' as never)}>
           <View style={styles.methodIcon}>
@@ -305,10 +295,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#EFF7F5',
     borderColor: '#134E36',
   },
-  gmailCard: {
-    backgroundColor: '#FFF3F0',
-    borderColor: '#D32F2F',
-  },
   methodIcon: {
     width: 48,
     height: 48,
@@ -316,9 +302,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#134E36',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  gmailIcon: {
-    backgroundColor: '#D32F2F',
   },
   guestIcon: {
     backgroundColor: '#0F7B6B',

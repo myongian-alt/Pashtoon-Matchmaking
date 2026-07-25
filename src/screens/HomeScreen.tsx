@@ -6,6 +6,7 @@ import { theme } from '../theme';
 import { useForm } from '../context/FormContext';
 import { useUser } from '../context/UserContext';
 import { RootStackParamList } from '../navigation/AppNavigator';
+import { buildSelfProfileFromForm } from '../lib/selfProfile';
 
 type HomeNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -28,30 +29,7 @@ export default function HomeScreen() {
   const { profileCompleted, selectedGender } = useUser();
 
   const handleViewMyProfile = () => {
-    const profile = {
-      id: 'self',
-      name: formData.name || 'Your Profile',
-      age: formData.dateOfBirth ? Math.max(18, new Date().getFullYear() - Number(formData.dateOfBirth.split('-')[0])) : 0,
-      gender: selectedGender || 'male',
-      maritalStatus: formData.maritalStatus || 'Not set',
-      cityOfBirth: formData.cityOfBirth || 'Not set',
-      currentCity: formData.currentCity || 'Not set',
-      nationality: formData.nationality || 'Not set',
-      education: formData.educationLevel || formData.degreeeName || 'Not set',
-      profession: formData.profession || 'Not set',
-      location: [formData.currentCity, formData.nationality].filter(Boolean).join(', ') || 'Not set',
-      height: formData.height || 'Not set',
-      bodyType: formData.bodyType || 'Not set',
-      aboutMe: formData.aboutMe || '',
-      lifestyle: formData.outlook || '',
-      values: formData.importantValue || '',
-      personality: formData.personality || '',
-      image: formData.profilePhoto || null,
-      galleryPhotos: Array.isArray(formData.galleryPhotos) ? formData.galleryPhotos : [],
-      isSelfProfile: true,
-    };
-
-    navigation.navigate('ProfileDetail', { profile });
+    navigation.navigate('ProfileDetail', { profile: buildSelfProfileFromForm(formData, selectedGender) });
   };
 
   return (

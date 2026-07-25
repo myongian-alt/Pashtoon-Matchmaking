@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import SplashScreen from '../screens/SplashScreen';
@@ -15,8 +15,9 @@ import PaymentSuccessScreen from '../screens/PaymentSuccessScreen';
 import { ProfileDetailScreen } from '../screens/ProfileDetailScreen';
 import TabNavigator from './TabNavigator';
 import { NotificationsProvider } from '../context/NotificationsContext';
-import { UserProvider } from '../context/UserContext';
-import { FormProvider } from '../context/FormContext';
+import { UserProvider, useUser } from '../context/UserContext';
+import { FormProvider, useForm } from '../context/FormContext';
+import { getProfile, getProfilePhotos, mapProfileRowToFormSnapshot } from '../lib/database';
 
 export type RootStackParamList = {
   Splash: undefined;
@@ -33,6 +34,7 @@ export type RootStackParamList = {
   PaymentSuccess: undefined;
   ProfileDetail: { profile: {
     id: string;
+    userId?: string;
     name: string;
     age?: number;
     gender?: string;
@@ -58,29 +60,87 @@ export type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+/**
+ * Loads the signed-in user's saved profile (and photos) from Supabase into
+ * FormContext once per session, so ProfileForm/HomeScreen show existing data
+ * instead of always starting from a blank form. Sits inside both FormProvider
+ * and UserProvider so it can read auth state and write form state.
+ */
+function ProfileHydrationBridge({ children }: { children: React.ReactNode }) {
+  const { userId, loading } = useUser();
+  const { updateFormData } = useForm();
+  const hydratedForUserId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (loading || !userId || hydratedForUserId.current === userId) {
+      return;
+    }
+
+    let isMounted = true;
+
+    (async () => {
+      const [{ data: profile }, { data: photos }] = await Promise.all([
+        getProfile(userId),
+        getProfilePhotos(userId),
+      ]);
+
+      if (!isMounted) {
+        return;
+      }
+
+      hydratedForUserId.current = userId;
+
+      if (!profile) {
+        return;
+      }
+
+      const snapshot = mapProfileRowToFormSnapshot(profile);
+      const profilePicture = (photos || []).find((photo: any) => photo.photo_type === 'profile_picture');
+      const galleryPhotos = (photos || [])
+        .filter((photo: any) => photo.photo_type === 'gallery')
+        .sort((a: any, b: any) => a.display_order - b.display_order)
+        .map((photo: any) => photo.photo_url);
+
+      updateFormData({
+        ...snapshot,
+        profilePhoto: profilePicture?.photo_url || '',
+        galleryPhotos,
+      });
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [userId, loading, updateFormData]);
+
+  return <>{children}</>;
+}
+
 export default function AppNavigator() {
   return (
     <FormProvider>
       <UserProvider>
-        <NotificationsProvider>
-          <NavigationContainer>
-            <Stack.Navigator screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="Splash" component={SplashScreen} />
-              <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-              <Stack.Screen name="ChooseGender" component={ChooseGenderScreen} />
-              <Stack.Screen name="AuthSelection" component={AuthSelectionScreen} />
-              <Stack.Screen name="EmailAuth" component={EmailAuthScreen} />
-              <Stack.Screen name="PhoneAuth" component={PhoneAuthScreen} />
-              <Stack.Screen name="OtpVerification" component={OtpVerificationScreen} />
-              <Stack.Screen name="ProfileCompletion" component={ProfileCompletionScreen} />
-              <Stack.Screen name="ProfileForm" component={ProfileFormScreen} />
-              <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />
-              <Stack.Screen name="Tabs" component={TabNavigator} />
-              <Stack.Screen name="ProfileDetail" component={ProfileDetailScreen} />
-              <Stack.Screen name="Premium" component={PremiumScreen} />
-            </Stack.Navigator>
-          </NavigationContainer>
-        </NotificationsProvider>
+        <ProfileHydrationBridge>
+          <NotificationsProvider>
+            <NavigationContainer>
+              <Stack.Navigator screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="Splash" component={SplashScreen} />
+                <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+                <Stack.Screen name="ChooseGender" component={ChooseGenderScreen} />
+                <Stack.Screen name="AuthSelection" component={AuthSelectionScreen} />
+                <Stack.Screen name="EmailAuth" component={EmailAuthScreen} />
+                <Stack.Screen name="PhoneAuth" component={PhoneAuthScreen} />
+                <Stack.Screen name="OtpVerification" component={OtpVerificationScreen} />
+                <Stack.Screen name="ProfileCompletion" component={ProfileCompletionScreen} />
+                <Stack.Screen name="ProfileForm" component={ProfileFormScreen} />
+                <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />
+                <Stack.Screen name="Tabs" component={TabNavigator} />
+                <Stack.Screen name="ProfileDetail" component={ProfileDetailScreen} />
+                <Stack.Screen name="Premium" component={PremiumScreen} />
+              </Stack.Navigator>
+            </NavigationContainer>
+          </NotificationsProvider>
+        </ProfileHydrationBridge>
       </UserProvider>
     </FormProvider>
   );

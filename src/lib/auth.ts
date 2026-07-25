@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { AuthError } from '@supabase/supabase-js';
+import * as Linking from 'expo-linking';
 
 export interface AuthCredentials {
   email?: string;
@@ -120,7 +121,7 @@ export async function signInWithGoogle(): Promise<AuthResponse> {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: 'exp://localhost:8081',
+        redirectTo: Linking.createURL('/'),
       },
     });
 
@@ -220,12 +221,49 @@ export async function updateUserProfile(metadata: Record<string, any>) {
 }
 
 /**
+ * Change the signed-in user's email. Supabase sends a confirmation link to
+ * the new address (and, depending on project settings, the old one too) -
+ * the change only takes effect once confirmed.
+ */
+export async function updateEmail(newEmail: string): Promise<AuthResponse> {
+  try {
+    const { data, error } = await supabase.auth.updateUser({ email: newEmail });
+
+    if (error) {
+      return { success: false, error };
+    }
+
+    return { success: true, user: data.user };
+  } catch (error) {
+    return { success: false, error: error as Error };
+  }
+}
+
+/**
+ * Change the signed-in user's phone number. Depending on project settings
+ * this may require OTP confirmation before it takes effect.
+ */
+export async function updatePhone(newPhone: string): Promise<AuthResponse> {
+  try {
+    const { data, error } = await supabase.auth.updateUser({ phone: newPhone });
+
+    if (error) {
+      return { success: false, error };
+    }
+
+    return { success: true, user: data.user };
+  } catch (error) {
+    return { success: false, error: error as Error };
+  }
+}
+
+/**
  * Reset password
  */
 export async function resetPassword(email: string): Promise<AuthResponse> {
   try {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'exp://localhost:8081/reset-password',
+      redirectTo: Linking.createURL('/reset-password'),
     });
 
     if (error) {

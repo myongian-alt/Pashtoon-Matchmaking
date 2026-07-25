@@ -12,14 +12,32 @@ type ProfileFormSnapshot = {
   degreeeName?: string;
   profession?: string;
   aboutMe?: string;
+  profileStrength?: number;
 };
 
-const MARITAL_STATUS_MAP: Record<string, 'never_married' | 'divorced' | 'widowed' | 'separated'> = {
+const MARITAL_STATUS_MAP: Record<string, 'never_married' | 'married' | 'divorced' | 'widowed' | 'separated'> = {
   Single: 'never_married',
+  Married: 'married',
   Divorced: 'divorced',
   Widowed: 'widowed',
   Separated: 'separated',
 };
+
+const MARITAL_STATUS_DISPLAY: Record<string, string> = Object.fromEntries(
+  Object.entries(MARITAL_STATUS_MAP).map(([display, dbValue]) => [dbValue, display])
+);
+
+const EDUCATION_LEVEL_MAP: Record<string, 'high_school' | 'bachelors' | 'masters' | 'phd' | 'diploma'> = {
+  'High School': 'high_school',
+  Bachelors: 'bachelors',
+  Masters: 'masters',
+  PhD: 'phd',
+  Diploma: 'diploma',
+};
+
+export const EDUCATION_LEVEL_DISPLAY: Record<string, string> = Object.fromEntries(
+  Object.entries(EDUCATION_LEVEL_MAP).map(([display, dbValue]) => [dbValue, display])
+);
 
 function normalizeDateOfBirth(value?: string): string {
   if (value && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -30,8 +48,12 @@ function normalizeDateOfBirth(value?: string): string {
   return '1995-01-01';
 }
 
-function normalizeMaritalStatus(value?: string): 'never_married' | 'divorced' | 'widowed' | 'separated' {
+function normalizeMaritalStatus(value?: string): 'never_married' | 'married' | 'divorced' | 'widowed' | 'separated' {
   return MARITAL_STATUS_MAP[value || ''] || 'never_married';
+}
+
+function normalizeEducationLevel(value?: string): 'high_school' | 'bachelors' | 'masters' | 'phd' | 'diploma' | null {
+  return EDUCATION_LEVEL_MAP[value || ''] || null;
 }
 
 export async function ensureCurrentUserRecord(gender: 'male' | 'female' = 'male') {
@@ -76,7 +98,7 @@ export async function upsertCurrentUserProfile(
     return { data: null, error: ensured.error };
   }
 
-  const payload = {
+  const payload: Record<string, unknown> = {
     user_id: authData.user.id,
     full_name: (formData.name || 'New User').trim(),
     date_of_birth: normalizeDateOfBirth(formData.dateOfBirth),
@@ -85,10 +107,15 @@ export async function upsertCurrentUserProfile(
     current_city: (formData.currentCity || '').trim() || 'Not set',
     nationality: (formData.nationality || '').trim() || null,
     phone_number: (formData.phoneNumber || '').trim() || null,
-    education: (formData.educationLevel || formData.degreeeName || '').trim() || null,
+    education_level: normalizeEducationLevel(formData.educationLevel),
+    degree_name: (formData.degreeeName || '').trim() || null,
     profession: (formData.profession || '').trim() || null,
     about_me: (formData.aboutMe || '').trim() || null,
   };
+
+  if (typeof formData.profileStrength === 'number') {
+    payload.profile_strength_percentage = Math.max(0, Math.min(100, Math.round(formData.profileStrength)));
+  }
 
   const { data, error } = await supabase
     .from('profiles')
@@ -97,6 +124,89 @@ export async function upsertCurrentUserProfile(
     .single();
 
   return { data, error };
+}
+
+/**
+ * Inverse of the upsertCurrentUserProfile payload mapping above - maps a saved
+ * profiles row back into the subset of ProfileFormData fields it can populate.
+ */
+export function mapProfileRowToFormSnapshot(row: any): ProfileFormSnapshot & { profilePhoto?: string } {
+  return {
+    name: row.full_name || '',
+    dateOfBirth: row.date_of_birth || '',
+    maritalStatus: MARITAL_STATUS_DISPLAY[row.marital_status] || '',
+    cityOfBirth: row.city_of_birth || '',
+    currentCity: row.current_city && row.current_city !== 'Not set' ? row.current_city : '',
+    nationality: row.nationality || '',
+    phoneNumber: row.phone_number || '',
+    educationLevel: EDUCATION_LEVEL_DISPLAY[row.education_level] || '',
+    degreeeName: row.degree_name || '',
+    profession: row.profession || '',
+    aboutMe: row.about_me || '',
+    profileStrength: row.profile_strength_percentage || 0,
+  };
+}
+
+// ============================================================================
+// PROFILE PHOTOS
+// ============================================================================
+
+export async function getProfilePhotos(userId: string) {
+  const { data, error } = await supabase
+    .from('profile_photos')
+    .select('id, photo_url, photo_type, display_order')
+    .eq('user_id', userId)
+    .order('display_order', { ascending: true });
+
+  return { data, error };
+}
+
+/**
+ * Replaces the profile_picture row and all gallery rows for a user with the
+ * uploaded photo URLs currently held in form state. Only called with photos
+ * that have already been uploaded to Storage (http(s) URLs) - stock avatar
+ * sentinel values ('male-avatar' / 'female-avatar') are skipped since those
+ * render client-side and are never stored as photo rows.
+ */
+export async function syncProfilePhotos(
+  userId: string,
+  profileId: string,
+  photos: { profilePhoto?: string; galleryPhotos?: string[] }
+) {
+  const isUploadedUrl = (value?: string) =>
+    typeof value === 'string' && (value.startsWith('http://') || value.startsWith('https://'));
+
+  await supabase.from('profile_photos').delete().eq('user_id', userId).eq('photo_type', 'profile_picture');
+
+  if (isUploadedUrl(photos.profilePhoto)) {
+    await supabase.from('profile_photos').insert([
+      {
+        user_id: userId,
+        profile_id: profileId,
+        photo_url: photos.profilePhoto,
+        photo_type: 'profile_picture',
+        display_order: 0,
+      },
+    ]);
+  }
+
+  await supabase.from('profile_photos').delete().eq('user_id', userId).eq('photo_type', 'gallery');
+
+  const galleryRows = (Array.isArray(photos.galleryPhotos) ? photos.galleryPhotos : [])
+    .map((uri, index) => ({ uri, index }))
+    .filter(({ uri }) => isUploadedUrl(uri))
+    .slice(0, 5)
+    .map(({ uri, index }) => ({
+      user_id: userId,
+      profile_id: profileId,
+      photo_url: uri,
+      photo_type: 'gallery' as const,
+      display_order: index + 1,
+    }));
+
+  if (galleryRows.length > 0) {
+    await supabase.from('profile_photos').insert(galleryRows);
+  }
 }
 
 // ============================================================================
@@ -108,7 +218,7 @@ export async function getProfile(userId: string) {
     .from('profiles')
     .select('*')
     .eq('user_id', userId)
-    .single();
+    .maybeSingle();
 
   return { data, error };
 }
@@ -181,6 +291,14 @@ export async function getDiscoveryProfiles(
     limit?: number;
   }
 ) {
+  const requestedLimit = filters?.limit || 20;
+  const wantsGenderFilter = filters?.gender_seeking === 'male' || filters?.gender_seeking === 'female';
+  // profiles no longer embeds users directly (public.users only exposes other
+  // users' rows through the users_public view, which PostgREST can't embed
+  // since it's not a real FK relationship) - fetch a larger batch when a
+  // gender filter is requested so there's enough left after filtering client-side.
+  const fetchLimit = wantsGenderFilter ? Math.min(requestedLimit * 4, 200) : requestedLimit;
+
   let query = supabase
     .from('profiles')
     .select(
@@ -191,15 +309,12 @@ export async function getDiscoveryProfiles(
       date_of_birth,
       current_city,
       nationality,
-      education,
+      education_level,
       profession,
       marital_status,
       about_me,
       profile_strength_percentage,
       is_verified,
-      users!inner(
-        gender_preference
-      ),
       profile_photos (
         id,
         photo_url,
@@ -210,11 +325,7 @@ export async function getDiscoveryProfiles(
     )
     .neq('user_id', currentUserId)
     .order('profile_strength_percentage', { ascending: false })
-    .limit(filters?.limit || 20);
-
-  if (filters?.gender_seeking === 'male' || filters?.gender_seeking === 'female') {
-    query = query.eq('users.gender_preference', filters.gender_seeking);
-  }
+    .limit(fetchLimit);
 
   if (filters?.current_city) {
     query = query.eq('current_city', filters.current_city);
@@ -230,8 +341,36 @@ export async function getDiscoveryProfiles(
       .gte('date_of_birth', minDate.toISOString().split('T')[0]);
   }
 
-  const { data, error } = await query;
-  return { data, error };
+  const { data: profiles, error: profilesError } = await query;
+
+  if (profilesError || !profiles) {
+    return { data: null, error: profilesError };
+  }
+
+  if (!wantsGenderFilter || profiles.length === 0) {
+    return { data: profiles, error: null };
+  }
+
+  const userIds = profiles.map((profile: any) => profile.user_id);
+  const { data: genders, error: gendersError } = await supabase
+    .from('users_public')
+    .select('id, gender_preference')
+    .in('id', userIds);
+
+  if (gendersError) {
+    return { data: null, error: gendersError };
+  }
+
+  const genderByUserId = new Map((genders || []).map((row: any) => [row.id, row.gender_preference]));
+  const filtered = profiles
+    .filter((profile: any) => genderByUserId.get(profile.user_id) === filters?.gender_seeking)
+    .slice(0, requestedLimit)
+    .map((profile: any) => ({
+      ...profile,
+      users: { gender_preference: genderByUserId.get(profile.user_id) },
+    }));
+
+  return { data: filtered, error: null };
 }
 
 // ============================================================================
@@ -244,13 +383,16 @@ export async function likeProfile(likedUserId: string, action: 'like' | 'reject'
 
   const { data, error } = await supabase
     .from('likes')
-    .upsert([
-      {
-        user_id: userData.user.id,
-        liked_user_id: likedUserId,
-        action,
-      },
-    ])
+    .upsert(
+      [
+        {
+          user_id: userData.user.id,
+          liked_user_id: likedUserId,
+          action,
+        },
+      ],
+      { onConflict: 'user_id,liked_user_id' }
+    )
     .select()
     .single();
 
@@ -269,26 +411,48 @@ export async function getLikes(userId: string, action?: 'like' | 'reject' | 'sho
 }
 
 export async function getWhoLikedMe(userId: string) {
-  const { data, error } = await supabase
+  const { data: likes, error: likesError } = await supabase
     .from('likes')
+    .select('id, user_id, action, created_at')
+    .eq('liked_user_id', userId)
+    .eq('action', 'like')
+    .order('created_at', { ascending: false });
+
+  if (likesError || !likes) {
+    return { data: null, error: likesError };
+  }
+
+  const likerIds = Array.from(new Set(likes.map((like) => like.user_id)));
+
+  if (likerIds.length === 0) {
+    return { data: [], error: null };
+  }
+
+  const { data: profiles, error: profilesError } = await supabase
+    .from('profiles')
     .select(
       `
-      id,
       user_id,
-      action,
-      created_at,
-      profiles:user_id(
-        full_name,
-        current_city,
-        about_me,
-        profile_photos(photo_url)
-      )
+      full_name,
+      current_city,
+      about_me,
+      profile_photos (photo_url)
     `
     )
-    .eq('liked_user_id', userId)
-    .eq('action', 'like');
+    .in('user_id', likerIds);
 
-  return { data, error };
+  if (profilesError) {
+    return { data: null, error: profilesError };
+  }
+
+  const profilesByUserId = new Map((profiles || []).map((profile) => [profile.user_id, profile]));
+
+  const enriched = likes.map((like) => ({
+    ...like,
+    profile: profilesByUserId.get(like.user_id) || null,
+  }));
+
+  return { data: enriched, error: null };
 }
 
 // ============================================================================
@@ -381,7 +545,7 @@ export async function getMatches(userId: string) {
         marital_status,
         current_city,
         nationality,
-        education,
+        education_level,
         profession,
         about_me,
         profile_strength_percentage,
@@ -394,7 +558,7 @@ export async function getMatches(userId: string) {
       `
       )
       .in('user_id', counterpartIds),
-    supabase.from('users').select('id, gender_preference').in('id', counterpartIds),
+    supabase.from('users_public').select('id, gender_preference').in('id', counterpartIds),
   ]);
 
   if (profilesError || usersError) {
@@ -422,23 +586,51 @@ export async function getMatches(userId: string) {
 // ============================================================================
 
 export async function getConversations(userId: string) {
-  const { data, error } = await supabase
+  const { data: conversations, error: conversationsError } = await supabase
     .from('conversations')
-    .select(
-      `
-      id,
-      user_1_id,
-      user_2_id,
-      last_message_preview,
-      last_message_sender_id,
-      updated_at,
-      profiles:user_1_id(full_name)
-    `
-    )
+    .select('id, user_1_id, user_2_id, last_message_preview, last_message_sender_id, updated_at')
     .or(`user_1_id.eq.${userId},user_2_id.eq.${userId}`)
     .order('updated_at', { ascending: false });
 
-  return { data, error };
+  if (conversationsError || !conversations) {
+    return { data: null, error: conversationsError };
+  }
+
+  const counterpartIds = Array.from(
+    new Set(
+      conversations.map((conversation) =>
+        conversation.user_1_id === userId ? conversation.user_2_id : conversation.user_1_id
+      )
+    )
+  );
+
+  if (counterpartIds.length === 0) {
+    return { data: [], error: null };
+  }
+
+  const { data: profiles, error: profilesError } = await supabase
+    .from('profiles')
+    .select('user_id, full_name')
+    .in('user_id', counterpartIds);
+
+  if (profilesError) {
+    return { data: null, error: profilesError };
+  }
+
+  const profilesByUserId = new Map((profiles || []).map((profile) => [profile.user_id, profile]));
+
+  const enriched = conversations.map((conversation) => {
+    const counterpartId =
+      conversation.user_1_id === userId ? conversation.user_2_id : conversation.user_1_id;
+
+    return {
+      ...conversation,
+      counterpart_user_id: counterpartId,
+      profile: profilesByUserId.get(counterpartId) || null,
+    };
+  });
+
+  return { data: enriched, error: null };
 }
 
 export async function getMessages(conversationId: string, limit = 50) {
@@ -538,7 +730,7 @@ export async function getSubscriptionStatus(userId: string) {
     .select('*')
     .eq('user_id', userId)
     .eq('status', 'active')
-    .single();
+    .maybeSingle();
 
   return { data, error };
 }
@@ -586,6 +778,79 @@ export async function getProfileVerificationStatus(userId: string) {
     .from('profile_verification')
     .select('*')
     .eq('user_id', userId)
+    .maybeSingle();
+
+  return { data, error };
+}
+
+// ============================================================================
+// DISCOVERY PREFERENCES
+// ============================================================================
+
+export type DiscoveryPreferences = {
+  gender_seeking?: 'male' | 'female' | 'both' | 'any';
+  age_min?: number;
+  age_max?: number;
+  preferred_cities?: string[];
+  show_profile_to_all?: boolean;
+};
+
+export async function getUserPreferences(userId: string) {
+  const { data, error } = await supabase
+    .from('user_preferences')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  return { data, error };
+}
+
+export async function upsertUserPreferences(userId: string, updates: DiscoveryPreferences) {
+  const { data, error } = await supabase
+    .from('user_preferences')
+    .upsert({ user_id: userId, ...updates }, { onConflict: 'user_id' })
+    .select()
+    .single();
+
+  return { data, error };
+}
+
+// ============================================================================
+// ACCOUNT SETTINGS
+// ============================================================================
+
+export async function getAccountSettings(userId: string) {
+  const { data, error } = await supabase
+    .from('user_app_state')
+    .select('notifications_enabled')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  return { data, error };
+}
+
+export async function setNotificationsEnabled(enabled: boolean) {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+
+  if (userError || !userData.user) {
+    return { data: null, error: userError || new Error('Not authenticated') };
+  }
+
+  const { data, error } = await supabase
+    .from('user_app_state')
+    .upsert({ user_id: userData.user.id, notifications_enabled: enabled }, { onConflict: 'user_id' })
+    .select()
+    .single();
+
+  return { data, error };
+}
+
+export async function deactivateAccount(userId: string) {
+  const { data, error } = await supabase
+    .from('users')
+    .update({ is_active: false })
+    .eq('id', userId)
+    .select()
     .single();
 
   return { data, error };
@@ -628,17 +893,40 @@ export function subscribeToNotifications(userId: string, callback: (payload: any
 }
 
 export function subscribeToMatches(userId: string, callback: (payload: any) => void) {
-  return supabase
-    .channel(`matches:${userId}`)
+  // postgres_changes filters only support a single column=eq.value comparison,
+  // so "or" across user_1_id/user_2_id needs two channels merged together.
+  const channelAsUser1 = supabase
+    .channel(`matches:${userId}:user_1`)
     .on(
       'postgres_changes',
       {
         event: 'INSERT',
         schema: 'public',
         table: 'matches',
-        filter: `or=(user_1_id.eq.${userId},user_2_id.eq.${userId})`,
+        filter: `user_1_id=eq.${userId}`,
       },
       callback
     )
     .subscribe();
+
+  const channelAsUser2 = supabase
+    .channel(`matches:${userId}:user_2`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'matches',
+        filter: `user_2_id=eq.${userId}`,
+      },
+      callback
+    )
+    .subscribe();
+
+  return {
+    unsubscribe: () => {
+      channelAsUser1.unsubscribe();
+      channelAsUser2.unsubscribe();
+    },
+  };
 }

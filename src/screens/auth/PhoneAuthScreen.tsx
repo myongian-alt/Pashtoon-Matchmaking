@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -11,6 +12,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../../theme';
 import { AuthButton } from '../../components/common/AuthButton';
 import { LinkText } from '../../components/common/LinkText';
@@ -20,10 +22,27 @@ import { RootStackParamList } from '../../navigation/AppNavigator';
 
 type PhoneAuthNavigationProp = NativeStackNavigationProp<RootStackParamList, 'PhoneAuth'>;
 
+// Common calling codes for this app's likely audience (Pashtoons across
+// Afghanistan/Pakistan and the diaspora) - not exhaustive, but the user can
+// always type a full "+<code>" number directly and this list is skipped.
+const COUNTRY_CODES = [
+  { code: '+93', label: 'Afghanistan' },
+  { code: '+92', label: 'Pakistan' },
+  { code: '+971', label: 'United Arab Emirates' },
+  { code: '+966', label: 'Saudi Arabia' },
+  { code: '+974', label: 'Qatar' },
+  { code: '+44', label: 'United Kingdom' },
+  { code: '+1', label: 'United States / Canada' },
+  { code: '+61', label: 'Australia' },
+  { code: '+49', label: 'Germany' },
+];
+
 export default function PhoneAuthScreen() {
   const navigation = useNavigation<PhoneAuthNavigationProp>();
   const { setUserPhone, selectedGender } = useUser();
   const [phone, setPhone] = useState('');
+  const [countryCode, setCountryCode] = useState('+92');
+  const [showCodePicker, setShowCodePicker] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,7 +59,7 @@ export default function PhoneAuthScreen() {
       const cleanedPhone = phone.replace(/[\s()-]/g, '');
       const formattedPhone = cleanedPhone.startsWith('+')
         ? cleanedPhone
-        : `+92${cleanedPhone.replace(/^0+/, '')}`;
+        : `${countryCode}${cleanedPhone.replace(/^0+/, '')}`;
 
       const response = await signUpWithPhone(formattedPhone);
 
@@ -82,16 +101,28 @@ export default function PhoneAuthScreen() {
         </Text>
         <View style={styles.inputCard}>
           <Text style={styles.inputLabel}>Phone Number</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="+92 300 1234567"
-            placeholderTextColor={theme.colors.border}
-            keyboardType="phone-pad"
-            value={phone}
-            onChangeText={setPhone}
-            editable={!loading}
-          />
-          <Text style={styles.helperText}>Include country code (e.g., +92)</Text>
+          <View style={styles.phoneRow}>
+            <Pressable
+              style={styles.codeButton}
+              onPress={() => setShowCodePicker(true)}
+              disabled={loading}
+            >
+              <Text style={styles.codeButtonText}>{countryCode}</Text>
+              <MaterialCommunityIcons name="chevron-down" size={18} color={theme.colors.primary} />
+            </Pressable>
+            <TextInput
+              style={[styles.input, styles.phoneInput]}
+              placeholder="300 1234567"
+              placeholderTextColor={theme.colors.border}
+              keyboardType="phone-pad"
+              value={phone}
+              onChangeText={setPhone}
+              editable={!loading}
+            />
+          </View>
+          <Text style={styles.helperText}>
+            Select your country code, or type a full number starting with "+".
+          </Text>
         </View>
 
         {error && <Text style={styles.errorText}>{error}</Text>}
@@ -111,6 +142,35 @@ export default function PhoneAuthScreen() {
           <LinkText label="Contact Support" onPress={() => {}} />
         </View>
       </View>
+
+      <Modal
+        visible={showCodePicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowCodePicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <Text style={styles.modalTitle}>Select country code</Text>
+            {COUNTRY_CODES.map((item) => (
+              <Pressable
+                key={item.code}
+                style={styles.codeOption}
+                onPress={() => {
+                  setCountryCode(item.code);
+                  setShowCodePicker(false);
+                }}
+              >
+                <Text style={styles.codeOptionLabel}>{item.label}</Text>
+                <Text style={styles.codeOptionCode}>{item.code}</Text>
+              </Pressable>
+            ))}
+            <Pressable style={styles.modalCancel} onPress={() => setShowCodePicker(false)}>
+              <Text style={styles.modalCancelText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -148,6 +208,74 @@ const styles = StyleSheet.create({
     color: theme.colors.muted,
     fontSize: 14,
     marginBottom: 10,
+    fontWeight: '600',
+  },
+  phoneRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 10,
+  },
+  codeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: 4,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  codeButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: theme.colors.primary,
+  },
+  phoneInput: {
+    flex: 1,
+    marginBottom: 0,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(12, 12, 12, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: theme.colors.surface,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 24,
+    paddingBottom: 34,
+    maxHeight: '75%',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: theme.colors.text,
+    marginBottom: 14,
+  },
+  codeOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.border,
+  },
+  codeOptionLabel: {
+    fontSize: 15,
+    color: theme.colors.text,
+  },
+  codeOptionCode: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: theme.colors.primary,
+  },
+  modalCancel: {
+    marginTop: 12,
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  modalCancelText: {
+    color: theme.colors.textSecondary,
     fontWeight: '600',
   },
   input: {

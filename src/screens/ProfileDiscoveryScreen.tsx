@@ -1,16 +1,24 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View, FlatList, Image, ActivityIndicator, Modal, TextInput } from 'react-native';
+import { Pressable, StyleSheet, Text, View, FlatList, Image, ActivityIndicator, Modal, TextInput, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { theme } from '../theme';
 import { useUser } from '../context/UserContext';
 import { RootStackParamList } from '../navigation/AppNavigator';
-import { getDiscoveryProfiles, getMatches } from '../lib/database';
+import { getDiscoveryProfiles, getMatches, likeProfile, EDUCATION_LEVEL_DISPLAY } from '../lib/database';
 import { ModernMuslimAvatar } from '../components/common/ModernMuslimAvatar';
+import { LoginPromptModal } from '../components/common/LoginPromptModal';
+import { SmartRecommendationsStrip } from '../components/ai/SmartRecommendationsStrip';
+import {
+  getSmartMatchRecommendationsForCurrentUser,
+  RecommendationCandidate,
+  SmartMatchRecommendation,
+} from '../lib/aiCoach';
 
 type ProfileListItem = {
   id: string;
+  userId?: string;
   name: string;
   age: number;
   gender: 'male' | 'female';
@@ -131,6 +139,8 @@ function toDisplayMaritalStatus(value?: string) {
   switch (value) {
     case 'never_married':
       return 'Never Married';
+    case 'married':
+      return 'Married';
     case 'divorced':
       return 'Divorced';
     case 'widowed':
@@ -165,12 +175,13 @@ function toListItemFromProfile(row: any, source: 'discover' | 'matches'): Profil
 
   return {
     id: row.id || row.user_id || row.counterpart_user_id,
+    userId: row.user_id || row.counterpart_user_id || undefined,
     name: row.full_name || 'Unnamed profile',
     age: toAge(row.date_of_birth),
     gender,
     maritalStatus: toDisplayMaritalStatus(row.marital_status),
     currentCity: city || 'Not set',
-    education: row.education || 'Not set',
+    education: row.education_level ? EDUCATION_LEVEL_DISPLAY[row.education_level] || row.education_level : 'Not set',
     profession: row.profession || 'Not set',
     location: [city, country].filter(Boolean).join(', ') || 'Not set',
     image: imageUri ? { uri: imageUri } : null,
@@ -238,8 +249,9 @@ function applyFilters(list: ProfileListItem[], filters: DiscoveryFilters) {
 
 export default function ProfileDiscoveryScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { selectedGender, userId, loading } = useUser();
+  const { selectedGender, userId, loading, isGuest } = useUser();
   const [likedProfiles, setLikedProfiles] = useState<string[]>([]);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [discoverProfiles, setDiscoverProfiles] = useState<ProfileListItem[]>([]);
   const [matchedProfiles, setMatchedProfiles] = useState<ProfileListItem[]>([]);
   const [loadingDiscover, setLoadingDiscover] = useState(true);
@@ -248,6 +260,7 @@ export default function ProfileDiscoveryScreen() {
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState<DiscoveryFilters>(EMPTY_FILTERS);
   const [draftFilters, setDraftFilters] = useState<DiscoveryFilters>(EMPTY_FILTERS);
+  const [smartRecommendations, setSmartRecommendations] = useState<SmartMatchRecommendation[]>([]);
 
   const targetGender = useMemo(() => {
     if (selectedGender === 'male') return 'female';
@@ -259,7 +272,18 @@ export default function ProfileDiscoveryScreen() {
     let isMounted = true;
 
     const loadDiscover = async () => {
-      if (loading || !userId) {
+      if (loading) {
+        return;
+      }
+
+      if (!userId) {
+        // Guests aren't authenticated against Supabase - show sample profiles
+        // instead of leaving the screen stuck on "Loading profiles...".
+        const genderFiltered = targetGender
+          ? fallbackDiscoverProfiles.filter((item) => item.gender === targetGender)
+          : fallbackDiscoverProfiles;
+        setDiscoverProfiles(genderFiltered);
+        setLoadingDiscover(false);
         return;
       }
 
@@ -289,7 +313,13 @@ export default function ProfileDiscoveryScreen() {
     };
 
     const loadMatches = async () => {
-      if (loading || !userId) {
+      if (loading) {
+        return;
+      }
+
+      if (!userId) {
+        setMatchedProfiles(fallbackMatchProfiles);
+        setLoadingMatches(false);
         return;
       }
 
@@ -331,14 +361,99 @@ export default function ProfileDiscoveryScreen() {
     };
   }, [loading, userId, targetGender]);
 
-  const handleLike = (profileId: string) => {
-    setLikedProfiles((prev) => (prev.includes(profileId) ? prev : [...prev, profileId]));
+  useEffect(() => {
+    let mounted = true;
+
+    const loadRecommendations = async () => {
+      if (!discoverProfiles.length) {
+        setSmartRecommendations([]);
+        return;
+      }
+
+      const candidates: RecommendationCandidate[] = discoverProfiles.map((profile) => ({
+        id: profile.id,
+        name: profile.name,
+        age: profile.age,
+        gender: profile.gender,
+        currentCity: profile.currentCity,
+        location: profile.location,
+        education: profile.education,
+        profession: profile.profession,
+        compatibility: profile.compatibility,
+        image: profile.image,
+      }));
+
+      const result = await getSmartMatchRecommendationsForCurrentUser(candidates, 4);
+
+      if (!mounted || result.error) {
+        return;
+      }
+
+      setSmartRecommendations(result.data);
+    };
+
+    loadRecommendations();
+
+    return () => {
+      mounted = false;
+    };
+  }, [discoverProfiles]);
+
+  const handleLike = async (item: ProfileListItem) => {
+    if (isGuest) {
+      setShowLoginPrompt(true);
+      return;
+    }
+
+    setLikedProfiles((prev) => (prev.includes(item.id) ? prev : [...prev, item.id]));
+
+    if (!item.userId) {
+      // Demo/sample profile with no backing user row - nothing to persist.
+      return;
+    }
+
+    const result = await likeProfile(item.userId, 'like');
+    if (result.error) {
+      setLikedProfiles((prev) => prev.filter((id) => id !== item.id));
+      Alert.alert('Could not save like', 'Please try again.');
+    }
+  };
+
+  const handleSkip = async (item: ProfileListItem) => {
+    if (isGuest) {
+      setShowLoginPrompt(true);
+      return;
+    }
+
+    const removeFromList = (list: ProfileListItem[]) => list.filter((profile) => profile.id !== item.id);
+    if (activeMode === 'discover') {
+      setDiscoverProfiles(removeFromList);
+    } else {
+      setMatchedProfiles(removeFromList);
+    }
+
+    if (!item.userId) {
+      return;
+    }
+
+    const result = await likeProfile(item.userId, 'reject');
+    if (result.error) {
+      Alert.alert('Could not save', 'Please try again.');
+    }
   };
 
   const handleViewProfile = (profile: ProfileListItem) => {
     navigation.navigate('ProfileDetail', {
       profile,
     });
+  };
+
+  const handleOpenRecommendedProfile = (recommendation: SmartMatchRecommendation) => {
+    const profile = discoverProfiles.find((candidate) => candidate.id === recommendation.profileId);
+
+    if (profile) {
+      handleViewProfile(profile);
+    }
   };
 
   const filteredDiscoverProfiles = useMemo(
@@ -427,12 +542,12 @@ export default function ProfileDiscoveryScreen() {
           </View>
 
           <View style={styles.actionButtons}>
-            <Pressable style={styles.skipButton}>
+            <Pressable style={styles.skipButton} onPress={() => handleSkip(item)}>
               <MaterialCommunityIcons name="close" size={20} color={theme.colors.primary} />
               <Text style={styles.buttonLabel}>Skip</Text>
             </Pressable>
 
-            <Pressable style={[styles.likeButton, isLiked && styles.likeButtonActive]} onPress={() => handleLike(item.id)}>
+            <Pressable style={[styles.likeButton, isLiked && styles.likeButtonActive]} onPress={() => handleLike(item)}>
               <MaterialCommunityIcons
                 name={isLiked ? 'heart' : 'heart-outline'}
                 size={22}
@@ -506,6 +621,14 @@ export default function ProfileDiscoveryScreen() {
           keyExtractor={(item) => `${activeMode}-${item.id}`}
           numColumns={1}
           contentContainerStyle={styles.profilesList}
+          ListHeaderComponent={
+            activeMode === 'discover' ? (
+              <SmartRecommendationsStrip
+                recommendations={smartRecommendations}
+                onOpenProfile={handleOpenRecommendedProfile}
+              />
+            ) : null
+          }
           renderItem={renderProfileCard}
           ListEmptyComponent={
             <View style={styles.loaderContainer}>
@@ -597,6 +720,19 @@ export default function ProfileDiscoveryScreen() {
           </View>
         </View>
       </Modal>
+
+      <LoginPromptModal
+        visible={showLoginPrompt}
+        onLoginWithEmail={() => {
+          setShowLoginPrompt(false);
+          navigation.navigate('EmailAuth');
+        }}
+        onLoginWithPhone={() => {
+          setShowLoginPrompt(false);
+          navigation.navigate('PhoneAuth');
+        }}
+        onDismiss={() => setShowLoginPrompt(false)}
+      />
     </View>
   );
 }

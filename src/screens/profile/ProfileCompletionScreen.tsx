@@ -1,18 +1,59 @@
-import React from 'react';
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { theme } from '../../theme';
 import { useUser } from '../../context/UserContext';
 import { AppBottomNav } from '../../components/common/AppBottomNav';
+import { CoachTip, getProfileCoachTipsForCurrentUser } from '../../lib/aiCoach';
+import { ProfileCoachCard } from '../../components/ai/ProfileCoachCard';
+import { processPayment } from '../../lib/database';
 
 export default function ProfileCompletionScreen() {
   const navigation = useNavigation();
-  const { profileCompleted } = useUser();
+  const { profileCompleted, userId, isGuest } = useUser();
+  const [coachTips, setCoachTips] = useState<CoachTip[]>([]);
+  const [processingPayment, setProcessingPayment] = useState(false);
 
-  const handlePayment = () => {
-    // Simulate payment processing
+  useEffect(() => {
+    let mounted = true;
+
+    const loadTips = async () => {
+      const result = await getProfileCoachTipsForCurrentUser(3);
+      if (!mounted || result.error) {
+        return;
+      }
+      setCoachTips(result.data);
+    };
+
+    loadTips();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handlePayment = async (method: 'card' | 'admin_contact') => {
+    if (isGuest || !userId) {
+      Alert.alert('Sign in required', 'Please sign in to complete your payment.');
+      navigation.navigate('AuthSelection' as never);
+      return;
+    }
+
+    setProcessingPayment(true);
+    const result = await processPayment(userId, 30, method);
+    setProcessingPayment(false);
+
+    if (result.error) {
+      Alert.alert('Payment failed', 'Could not process your payment right now. Please try again.');
+      return;
+    }
+
     navigation.navigate('PaymentSuccess' as never);
+  };
+
+  const handleSkipPayment = () => {
+    (navigation as any).navigate('Tabs', { screen: 'Discover' });
   };
 
   return (
@@ -23,66 +64,87 @@ export default function ProfileCompletionScreen() {
           <MaterialCommunityIcons name="chevron-left" size={28} color={theme.colors.primary} />
         </Pressable>
         <Text style={styles.headerTitle}>Contact Details</Text>
-        <View style={styles.spacer} />
+        <Pressable style={styles.skipHeaderButton} onPress={handleSkipPayment}>
+          <Text style={styles.skipHeaderText}>Skip</Text>
+        </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Unlock Message */}
-        <View style={styles.messageCard}>
-          <MaterialCommunityIcons name="lock" size={48} color="#D4AF37" style={{ marginBottom: 12 }} />
-          <Text style={styles.messageTitle}>{profileCompleted ? 'Profile Completed' : 'Unlock Contact Details'}</Text>
-          <Text style={styles.messageText}>
-            {profileCompleted
-              ? 'Profile done. Complete payment to unlock contact details.'
-              : 'Complete your profile, then make one quick payment to unlock contact details.'}
-          </Text>
-        </View>
-
-        {/* Complete Profile Button */}
-        <Pressable style={styles.completeButton} onPress={() => navigation.navigate('ProfileForm' as never)}>
-          <Text style={styles.completeButtonText}>{profileCompleted ? 'Edit Profile' : 'Complete Profile'}</Text>
-        </Pressable>
-
-        {/* Payment Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Premium Access</Text>
-
-          <View style={styles.premiumCard}>
-            <View style={styles.planTopRow}>
-              <View style={styles.planHeader}>
-              <MaterialCommunityIcons name="crown" size={28} color="#D4AF37" />
-                <Text style={styles.planTitle}>One-Time Premium</Text>
-              </View>
-              <Text style={styles.planPrice}>$30</Text>
-            </View>
-            <Text style={styles.planDescription}>Lifetime access, no recurring charge.</Text>
-
-            <View style={styles.compactBenefitsRow}>
-              <View style={styles.compactBenefitPill}>
-                <MaterialCommunityIcons name="check-circle" size={14} color={theme.colors.primary} />
-                <Text style={styles.compactBenefitText}>Contact details</Text>
-              </View>
-              <View style={styles.compactBenefitPill}>
-                <MaterialCommunityIcons name="check-circle" size={14} color={theme.colors.primary} />
-                <Text style={styles.compactBenefitText}>Unlimited messages</Text>
-              </View>
-              <View style={styles.compactBenefitPill}>
-                <MaterialCommunityIcons name="check-circle" size={14} color={theme.colors.primary} />
-                <Text style={styles.compactBenefitText}>Priority matching</Text>
-              </View>
-            </View>
-
-            <Pressable style={styles.payNowButton} onPress={handlePayment}>
-              <MaterialCommunityIcons name="credit-card-check-outline" size={20} color="#fff" />
-              <Text style={styles.payNowButtonText}>Pay $30 and Unlock</Text>
-            </Pressable>
-
-            <Pressable style={styles.adminHelpButton} onPress={handlePayment}>
-              <MaterialCommunityIcons name="message-outline" size={16} color={theme.colors.primary} />
-              <Text style={styles.adminHelpText}>Need bank transfer help? Contact admin</Text>
-            </Pressable>
+        {/* Payment Section - leads the screen */}
+        <View style={styles.premiumCard}>
+          <View style={styles.recommendedBadge}>
+            <MaterialCommunityIcons name="star" size={11} color="#fff" />
+            <Text style={styles.recommendedBadgeText}>RECOMMENDED</Text>
           </View>
+
+          <View style={styles.planTopRow}>
+            <View style={styles.planHeader}>
+              <MaterialCommunityIcons name="crown" size={30} color="#D4AF37" />
+              <Text style={styles.planTitle}>One-Time Premium</Text>
+            </View>
+            <Text style={styles.planPrice}>$30</Text>
+          </View>
+          <Text style={styles.planDescription}>Unlock contact details. Lifetime access, no recurring charge.</Text>
+
+          <View style={styles.compactBenefitsRow}>
+            <View style={styles.compactBenefitPill}>
+              <MaterialCommunityIcons name="check-circle" size={14} color={theme.colors.primary} />
+              <Text style={styles.compactBenefitText}>Contact details</Text>
+            </View>
+            <View style={styles.compactBenefitPill}>
+              <MaterialCommunityIcons name="check-circle" size={14} color={theme.colors.primary} />
+              <Text style={styles.compactBenefitText}>Unlimited messages</Text>
+            </View>
+            <View style={styles.compactBenefitPill}>
+              <MaterialCommunityIcons name="check-circle" size={14} color={theme.colors.primary} />
+              <Text style={styles.compactBenefitText}>Priority matching</Text>
+            </View>
+          </View>
+
+          <Pressable
+            style={[styles.payNowButton, processingPayment && styles.payNowButtonDisabled]}
+            onPress={() => handlePayment('card')}
+            disabled={processingPayment}
+          >
+            <MaterialCommunityIcons name="credit-card-check-outline" size={22} color="#fff" />
+            <Text style={styles.payNowButtonText}>
+              {processingPayment ? 'Processing...' : 'Pay $30 and Unlock'}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.adminHelpButton}
+            onPress={() => handlePayment('admin_contact')}
+            disabled={processingPayment}
+          >
+            <MaterialCommunityIcons name="message-outline" size={16} color={theme.colors.primary} />
+            <Text style={styles.adminHelpText}>Need bank transfer help? Contact admin</Text>
+          </Pressable>
+
+          <Pressable style={styles.skipInlineButton} onPress={handleSkipPayment} disabled={processingPayment}>
+            <Text style={styles.skipInlineText}>Maybe later - skip to Discover</Text>
+          </Pressable>
         </View>
+
+        {/* Compact profile status */}
+        <View style={styles.profileStatusRow}>
+          <MaterialCommunityIcons
+            name={profileCompleted ? 'check-circle' : 'alert-circle-outline'}
+            size={18}
+            color={profileCompleted ? theme.colors.success : '#D4AF37'}
+          />
+          <Text style={styles.profileStatusText}>
+            {profileCompleted ? 'Profile completed' : 'Complete your profile for better matches'}
+          </Text>
+          <Pressable onPress={() => navigation.navigate('ProfileForm' as never)}>
+            <Text style={styles.profileStatusLink}>{profileCompleted ? 'Edit' : 'Complete'}</Text>
+          </Pressable>
+        </View>
+
+        <ProfileCoachCard
+          tips={coachTips}
+          onTapTip={() => navigation.navigate('ProfileForm' as never)}
+        />
 
         {/* Trust Section */}
         <View style={styles.trustSection}>
@@ -128,63 +190,85 @@ const styles = StyleSheet.create({
   spacer: {
     width: 44,
   },
+  skipHeaderButton: {
+    width: 44,
+    alignItems: 'flex-end',
+    paddingVertical: 12,
+  },
+  skipHeaderText: {
+    color: theme.colors.textSecondary,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  skipInlineButton: {
+    marginTop: 14,
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  skipInlineText: {
+    color: theme.colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
   content: {
     padding: 20,
     paddingBottom: 32,
   },
-  messageCard: {
-    backgroundColor: '#FFF5E5',
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#F0E0D0',
-  },
-  messageTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#1F2924',
-    marginBottom: 8,
-    fontFamily: 'Georgia',
-    textAlign: 'center',
-  },
-  messageText: {
-    fontSize: 14,
-    color: theme.colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  section: {
-    marginBottom: 28,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#1F2924',
-    marginBottom: 16,
-    fontFamily: 'Georgia',
-  },
-  completeButton: {
-    backgroundColor: theme.colors.primary,
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  completeButtonText: {
-    color: '#fff',
-    fontWeight: '800',
-    fontSize: 16,
-    fontFamily: 'Georgia',
-  },
   premiumCard: {
-    backgroundColor: '#FFF5E5',
-    borderRadius: 16,
+    backgroundColor: '#FFFDF7',
+    borderRadius: 20,
     padding: 20,
+    paddingTop: 24,
+    marginBottom: 18,
+    borderWidth: 2,
+    borderColor: '#D4AF37',
+    shadowColor: '#D4AF37',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 14,
+    elevation: 6,
+  },
+  recommendedBadge: {
+    position: 'absolute',
+    top: -11,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#D4AF37',
+    borderRadius: 999,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+  },
+  recommendedBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  profileStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: theme.colors.surface,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#F0E0D0',
+    borderColor: theme.colors.border,
+  },
+  profileStatusText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1F2924',
+  },
+  profileStatusLink: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: theme.colors.primary,
   },
   planTopRow: {
     flexDirection: 'row',
@@ -246,6 +330,9 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary,
     borderRadius: 12,
     gap: 8,
+  },
+  payNowButtonDisabled: {
+    opacity: 0.6,
   },
   payNowButtonText: {
     fontSize: 15,
