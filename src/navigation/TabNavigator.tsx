@@ -3,7 +3,6 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import ProfileDiscoveryScreen from '../screens/ProfileDiscoveryScreen';
 import HomeScreen from '../screens/HomeScreen';
-import { MatchesScreen } from '../screens/MatchesScreen';
 import { FavoritesScreen } from '../screens/FavoritesScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { theme } from '../theme';
@@ -37,7 +36,6 @@ export default function TabNavigator() {
 
           if (route.name === 'Discover') iconName = 'cards-heart';
           if (route.name === 'Home') iconName = 'home';
-          if (route.name === 'Matches') iconName = 'account-multiple';
           if (route.name === 'Favorites') iconName = 'heart';
           if (route.name === 'Notifications') iconName = 'bell';
 
@@ -47,7 +45,6 @@ export default function TabNavigator() {
     >
       <Tab.Screen name="Discover" component={ProfileDiscoveryScreen} options={{ tabBarLabel: 'Discover' }} />
       <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: 'Home' }} />
-      <Tab.Screen name="Matches" component={MatchesScreen} options={{ tabBarLabel: 'Matches' }} />
       <Tab.Screen name="Favorites" component={FavoritesScreen} options={{ tabBarLabel: 'Favorites' }} />
       <Tab.Screen
         name="Notifications"

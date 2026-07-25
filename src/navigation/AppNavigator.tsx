@@ -40,6 +40,7 @@ export type RootStackParamList = {
     education?: string;
     profession?: string;
     maritalStatus?: string;
+    nationality?: string;
     cityOfBirth?: string;
     currentCity?: string;
     height?: string;

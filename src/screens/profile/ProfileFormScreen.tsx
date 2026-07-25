@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -19,6 +19,8 @@ import { useForm } from '../../context/FormContext';
 import { useUser } from '../../context/UserContext';
 import * as ImagePicker from 'expo-image-picker';
 import { RootStackParamList } from '../../navigation/AppNavigator';
+import { Country, City } from 'country-state-city';
+import { upsertCurrentUserProfile } from '../../lib/database';
 
 type ProfileFormNavigationProp = NativeStackNavigationProp<RootStackParamList, 'ProfileForm'>;
 
@@ -41,8 +43,8 @@ const fieldConfigs: { [key: number]: any[] } = {
     { key: 'profilePhoto', label: 'Choose Your Photo', type: 'avatar' },
     { key: 'phoneNumber', label: 'Phone Number *', type: 'text', mandatory: true },
     { key: 'maritalStatus', label: 'Marital Status *', type: 'dropdown', mandatory: true, options: ['Single', 'Divorced', 'Widowed', 'Separated'] },
-    { key: 'currentCity', label: 'Current City *', type: 'text', mandatory: true },
-    { key: 'nationality', label: 'Nationality *', type: 'dropdown', mandatory: true, options: ['Pakistani', 'Afghan', 'Turkish', 'Saudi', 'UAE', 'USA', 'Canada', 'UK', 'Australia', 'Other'] },
+    { key: 'nationality', label: 'Country *', type: 'dropdown', mandatory: true, options: [] },
+    { key: 'currentCity', label: 'Current City *', type: 'dropdown', mandatory: true, options: [] },
     { key: 'educationLevel', label: 'Education *', type: 'dropdown', mandatory: true, options: ['High School', 'Bachelors', 'Masters', 'PhD', 'Diploma'] },
     { key: 'profession', label: 'Profession *', type: 'dropdown', mandatory: true, options: ['Engineer', 'Doctor', 'Lawyer', 'Business', 'Teaching', 'Government', 'IT', 'Finance', 'Healthcare', 'Other'] },
     { key: 'name', label: 'Full Name', type: 'text' },
@@ -123,21 +125,44 @@ const fieldConfigs: { [key: number]: any[] } = {
 export default function ProfileFormScreen() {
   const navigation = useNavigation<ProfileFormNavigationProp>();
   const { formData, updateField, calculateProfileStrength } = useForm();
-  const { setProfileCompleted } = useUser();
+  const { setProfileCompleted, selectedGender, isAuthenticated } = useUser();
   const [currentSection, setCurrentSection] = useState(0);
+  const [savingProfile, setSavingProfile] = useState(false);
   const profileStrength = calculateProfileStrength();
+
+  const countries = useMemo(() => Country.getAllCountries(), []);
+  const countryOptions = useMemo(
+    () => countries.map((country) => country.name).sort((a, b) => a.localeCompare(b)),
+    [countries]
+  );
+
+  const selectedCountryCode = useMemo(() => {
+    const country = countries.find((item) => item.name === formData.nationality);
+    return country?.isoCode;
+  }, [countries, formData.nationality]);
+
+  const cityOptions = useMemo(() => {
+    if (!selectedCountryCode) {
+      return [];
+    }
+
+    const cities = City.getCitiesOfCountry(selectedCountryCode) || [];
+    const names = Array.from(new Set(cities.map((city) => city.name).filter(Boolean)));
+    return names.sort((a, b) => a.localeCompare(b));
+  }, [selectedCountryCode]);
 
   const buildSelfProfile = () => ({
     id: 'self',
     name: formData.name || 'Your Profile',
     age: formData.dateOfBirth ? Math.max(18, new Date().getFullYear() - Number(formData.dateOfBirth.split('-')[0])) : 0,
-    gender: 'male',
+    gender: selectedGender || 'male',
     maritalStatus: formData.maritalStatus || 'Not set',
     cityOfBirth: formData.cityOfBirth || 'Not set',
     currentCity: formData.currentCity || 'Not set',
+    nationality: formData.nationality || 'Not set',
     education: formData.educationLevel || formData.degreeeName || 'Not set',
     profession: formData.profession || 'Not set',
-    location: formData.currentCity || 'Not set',
+    location: [formData.currentCity, formData.nationality].filter(Boolean).join(', ') || 'Not set',
     height: formData.height || 'Not set',
     bodyType: formData.bodyType || 'Not set',
     aboutMe: formData.aboutMe || '',
@@ -153,10 +178,21 @@ export default function ProfileFormScreen() {
     navigation.navigate('ProfileDetail', { profile: buildSelfProfile() });
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentSection < sections.length - 1) {
       setCurrentSection(currentSection + 1);
     } else {
+      if (isAuthenticated) {
+        setSavingProfile(true);
+        const result = await upsertCurrentUserProfile(formData, selectedGender || 'male');
+        setSavingProfile(false);
+
+        if (result.error) {
+          Alert.alert('Profile Save Failed', result.error.message || 'Unable to save your profile right now.');
+          return;
+        }
+      }
+
       // Persist completion so user is not prompted to re-complete the form.
       setProfileCompleted(true);
       navigation.navigate('ProfileCompletion');
@@ -192,7 +228,13 @@ export default function ProfileFormScreen() {
           ))}
         </View>
 
-        <SectionRenderer section={currentSection} formData={formData} updateField={(key: string, value: string) => updateField(key as any, value)} />
+        <SectionRenderer
+          section={currentSection}
+          formData={formData}
+          countryOptions={countryOptions}
+          cityOptions={cityOptions}
+          updateField={(key: string, value: string) => updateField(key as any, value)}
+        />
 
         <View style={styles.navigationButtons}>
           <Pressable
@@ -202,8 +244,10 @@ export default function ProfileFormScreen() {
           >
             <Text style={[styles.buttonText, currentSection === 0 && styles.buttonTextDisabled]}>← Previous</Text>
           </Pressable>
-          <Pressable style={styles.buttonPrimary} onPress={handleNext}>
-            <Text style={styles.buttonPrimaryText}>{currentSection === sections.length - 1 ? 'Save & Continue' : 'Next →'}</Text>
+          <Pressable style={styles.buttonPrimary} onPress={handleNext} disabled={savingProfile}>
+            <Text style={styles.buttonPrimaryText}>
+              {currentSection === sections.length - 1 ? (savingProfile ? 'Saving...' : 'Save & Continue') : 'Next →'}
+            </Text>
           </Pressable>
         </View>
 
@@ -218,7 +262,19 @@ export default function ProfileFormScreen() {
   );
 }
 
-function SectionRenderer({ section, formData, updateField }: { section: number; formData: any; updateField: (key: string, value: string) => void }) {
+function SectionRenderer({
+  section,
+  formData,
+  updateField,
+  countryOptions,
+  cityOptions,
+}: {
+  section: number;
+  formData: any;
+  updateField: (key: string, value: string) => void;
+  countryOptions: string[];
+  cityOptions: string[];
+}) {
   const sectionTitle = sections[section].title;
   const fields = fieldConfigs[section] || [];
 
@@ -243,12 +299,34 @@ function SectionRenderer({ section, formData, updateField }: { section: number; 
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{sectionTitle}</Text>
       {fields.map((field) => (
+        (() => {
+          const resolvedField = { ...field };
+
+          if (resolvedField.key === 'nationality') {
+            resolvedField.options = countryOptions;
+          }
+
+          if (resolvedField.key === 'currentCity') {
+            resolvedField.options = cityOptions;
+          }
+
+          return (
         <FormField
-          key={field.key}
-          field={field}
-          value={formData[field.key as keyof typeof formData] || ''}
-          onChange={(v) => updateField(field.key as any, v)}
+              key={resolvedField.key}
+              field={resolvedField}
+              value={formData[resolvedField.key as keyof typeof formData] || ''}
+              onChange={(v) => {
+                if (resolvedField.key === 'nationality') {
+                  updateField('nationality', v);
+                  updateField('currentCity', '');
+                  return;
+                }
+
+                updateField(resolvedField.key as any, v);
+              }}
         />
+          );
+        })()
       ))}
     </View>
   );
@@ -311,6 +389,7 @@ function ProfilePreview({ formData }: { formData: any }) {
 function FormField({ field, value, onChange }: { field: any; value: string; onChange: (v: string) => void }) {
   const { formData, updateField } = useForm();
   const [showDropdown, setShowDropdown] = useState(false);
+  const [dropdownQuery, setDropdownQuery] = useState('');
 
   const handlePickImage = async (target: 'profilePhoto' | 'gallery', index?: number) => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -414,6 +493,9 @@ function FormField({ field, value, onChange }: { field: any; value: string; onCh
   }
 
   if (field.type === 'dropdown') {
+    const options: string[] = Array.isArray(field.options) ? field.options : [];
+    const filteredOptions = options.filter((option) => option.toLowerCase().includes(dropdownQuery.toLowerCase()));
+
     return (
       <View style={styles.fieldContainer}>
         <View style={styles.labelRow}>
@@ -435,23 +517,39 @@ function FormField({ field, value, onChange }: { field: any; value: string; onCh
         </Pressable>
         {showDropdown && (
           <View style={styles.dropdownMenu}>
-            {field.options.map((option: string) => (
-              <Pressable
-                key={option}
-                style={[styles.dropdownOption, value === option && styles.dropdownOptionSelected]}
-                onPress={() => {
-                  onChange(option);
-                  setShowDropdown(false);
-                }}
-              >
-                <Text style={[styles.dropdownOptionText, value === option && styles.dropdownOptionSelectedText]}>
-                  {option}
-                </Text>
-                {value === option && (
-                  <MaterialCommunityIcons name="check" size={18} color={theme.colors.primary} />
-                )}
-              </Pressable>
-            ))}
+            {options.length > 12 ? (
+              <TextInput
+                style={styles.dropdownSearchInput}
+                value={dropdownQuery}
+                onChangeText={setDropdownQuery}
+                placeholder="Search..."
+                placeholderTextColor="#999"
+              />
+            ) : null}
+
+            <ScrollView style={styles.dropdownOptionsScroller} nestedScrollEnabled>
+              {filteredOptions.map((option: string) => (
+                <Pressable
+                  key={option}
+                  style={[styles.dropdownOption, value === option && styles.dropdownOptionSelected]}
+                  onPress={() => {
+                    onChange(option);
+                    setDropdownQuery('');
+                    setShowDropdown(false);
+                  }}
+                >
+                  <Text style={[styles.dropdownOptionText, value === option && styles.dropdownOptionSelectedText]}>
+                    {option}
+                  </Text>
+                  {value === option && (
+                    <MaterialCommunityIcons name="check" size={18} color={theme.colors.primary} />
+                  )}
+                </Pressable>
+              ))}
+              {filteredOptions.length === 0 ? (
+                <Text style={styles.dropdownEmptyText}>No options found</Text>
+              ) : null}
+            </ScrollView>
           </View>
         )}
       </View>
@@ -562,10 +660,27 @@ const styles = StyleSheet.create({
   dropdownText: { fontSize: 13, fontWeight: '600', color: '#1F2924', flex: 1 },
   placeholderText: { color: '#999' },
   dropdownMenu: { marginTop: 6, borderRadius: 8, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E3D4C4', overflow: 'hidden' },
+  dropdownSearchInput: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0E0D0',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    fontSize: 13,
+    color: '#1F2924',
+  },
+  dropdownOptionsScroller: {
+    maxHeight: 220,
+  },
   dropdownOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#F0E0D0' },
   dropdownOptionSelected: { backgroundColor: '#FFF5E5' },
   dropdownOptionText: { fontSize: 13, color: '#1F2924', flex: 1 },
   dropdownOptionSelectedText: { fontWeight: '600', color: theme.colors.primary },
+  dropdownEmptyText: {
+    fontSize: 12,
+    color: '#999',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
   navigationButtons: { flexDirection: 'row', gap: 10, marginTop: 20 },
   button: { flex: 1, paddingVertical: 12, borderRadius: 10, borderWidth: 2, borderColor: theme.colors.primary, alignItems: 'center', justifyContent: 'center' },
   buttonDisabled: { borderColor: '#ddd', opacity: 0.5 },

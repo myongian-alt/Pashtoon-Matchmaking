@@ -62,7 +62,11 @@ export function ProfileDetailScreen({ route, navigation }: any) {
             <Image source={profileImageSource} style={styles.image} />
           ) : (
             <View style={[styles.image, styles.emptyImage]}>
-              <MaterialCommunityIcons name="account" size={72} color={theme.colors.primary} />
+              <MaterialCommunityIcons
+                name={profile?.gender === 'female' ? 'human-female' : 'human-male'}
+                size={72}
+                color={theme.colors.primary}
+              />
             </View>
           )}
           <View style={styles.genderBadge}>
