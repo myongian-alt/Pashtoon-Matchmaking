@@ -3,6 +3,7 @@ import { onAuthStateChange } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getProfileCompletionStatus, setProfileCompletionStatus } from '../lib/database';
+import { navigateTo } from '../navigation/navigationRef';
 
 interface UserContextType {
   selectedGender: 'male' | 'female' | null;
@@ -134,6 +135,21 @@ export function UserProvider({ children }: { children: ReactNode }) {
         setUserPhone(null);
         setProfileCompleted(false);
         setPaymentCompleted(false);
+      } else if (event === 'PASSWORD_RECOVERY') {
+        // Fires when a password-recovery link is opened (web only - the SDK
+        // reads the tokens out of the URL itself via detectSessionInUrl in
+        // supabase.ts; native recovery links are handled by authDeepLink.ts,
+        // which navigates directly since setSession() there only ever fires
+        // SIGNED_IN, never this event).
+        if (session?.user) {
+          setIsAuthenticated(true);
+          setIsGuest(false);
+          setUserId(session.user.id);
+          setSupabaseUser(session.user);
+          setUserEmail(session.user.email || null);
+          setUserPhone(session.user.phone || null);
+        }
+        navigateTo('NewPassword');
       }
       
       setLoading(false);

@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SUPABASE_URL = 'https://ngohyujweyxmrbbusufa.supabase.co';
@@ -10,7 +11,12 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     storage: AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false,
+    // On web this lets the SDK read the access/refresh tokens straight out of
+    // window.location when a password-recovery link is opened (fires a
+    // PASSWORD_RECOVERY auth event - see UserContext). There's no
+    // window.location on native, so it's left off there; native recovery
+    // links are instead handled by authDeepLink.ts via expo-linking.
+    detectSessionInUrl: Platform.OS === 'web',
   },
 });
 

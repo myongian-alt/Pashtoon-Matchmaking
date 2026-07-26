@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { theme } from '../theme';
+import { navigationRef } from '../navigation/navigationRef';
 
 export default function SplashScreen() {
   const navigation = useNavigation();
@@ -21,7 +22,14 @@ export default function SplashScreen() {
         useNativeDriver: true,
       }),
     ]).start(() => {
-      setTimeout(() => navigation.navigate('Onboarding' as never), 1400);
+      setTimeout(() => {
+        // Something else (e.g. a PASSWORD_RECOVERY deep link) may have
+        // already navigated away from Splash during the animation/delay -
+        // don't stomp over that with the default destination.
+        if (!navigationRef.isReady() || navigationRef.getCurrentRoute()?.name === 'Splash') {
+          navigation.navigate('Onboarding' as never);
+        }
+      }, 1400);
     });
   }, [navigation, opacity, translateY]);
 

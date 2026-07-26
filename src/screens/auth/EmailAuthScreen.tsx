@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -36,22 +35,35 @@ export default function EmailAuthScreen() {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [sendingReset, setSendingReset] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetSent, setResetSent] = useState(false);
 
+  const openForgotPassword = () => {
+    setResetEmail(email);
+    setResetError(null);
+    setResetSent(false);
+    setShowForgotPassword(true);
+  };
+
+  // Inline state instead of Alert.alert - a multi-button Alert.alert never
+  // fires on the web build (no dialog, no callback), and even a single-button
+  // one is silently inert there, so this can't rely on it for feedback.
   const handleSendResetLink = async () => {
+    setResetError(null);
+
     if (!resetEmail.trim()) {
-      Alert.alert('Enter your email', 'Please enter the email address for your account.');
+      setResetError('Please enter the email address for your account.');
       return;
     }
 
     setSendingReset(true);
     const response = await resetPassword(resetEmail.trim());
     setSendingReset(false);
-    setShowForgotPassword(false);
 
     if (response.success) {
-      Alert.alert('Check your email', 'If an account exists for that email, a password reset link has been sent.');
+      setResetSent(true);
     } else {
-      Alert.alert('Could not send reset link', response.error?.message || 'Please try again.');
+      setResetError(response.error?.message || 'Could not send reset link. Please try again.');
     }
   };
 
@@ -148,13 +160,7 @@ export default function EmailAuthScreen() {
         </View>
 
         {!isSignUp && (
-          <Pressable
-            style={styles.forgotPasswordButton}
-            onPress={() => {
-              setResetEmail(email);
-              setShowForgotPassword(true);
-            }}
-          >
+          <Pressable style={styles.forgotPasswordButton} onPress={openForgotPassword}>
             <Text style={styles.forgotPasswordText}>Forgot password?</Text>
           </Pressable>
         )}
@@ -198,36 +204,55 @@ export default function EmailAuthScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>Reset your password</Text>
-            <Text style={styles.modalSubtitle}>
-              Enter your account email and we'll send you a link to reset your password.
-            </Text>
-            <TextInput
-              style={styles.modalInput}
-              value={resetEmail}
-              onChangeText={setResetEmail}
-              placeholder="you@example.com"
-              placeholderTextColor={theme.colors.border}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <View style={styles.modalActions}>
-              <Pressable
-                style={styles.modalCancelButton}
-                onPress={() => setShowForgotPassword(false)}
-                disabled={sendingReset}
-              >
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                style={styles.modalSendButton}
-                onPress={handleSendResetLink}
-                disabled={sendingReset}
-              >
-                <Text style={styles.modalSendText}>{sendingReset ? 'Sending...' : 'Send Link'}</Text>
-              </Pressable>
-            </View>
+            {resetSent ? (
+              <>
+                <Text style={styles.modalTitle}>Check your email</Text>
+                <Text style={styles.modalSubtitle}>
+                  If an account exists for {resetEmail.trim()}, a password reset link has been sent.
+                </Text>
+                <Pressable
+                  style={styles.modalSendButton}
+                  onPress={() => setShowForgotPassword(false)}
+                >
+                  <Text style={styles.modalSendText}>Done</Text>
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <Text style={styles.modalTitle}>Reset your password</Text>
+                <Text style={styles.modalSubtitle}>
+                  Enter your account email and we'll send you a link to reset your password.
+                </Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={resetEmail}
+                  onChangeText={setResetEmail}
+                  placeholder="you@example.com"
+                  placeholderTextColor={theme.colors.border}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  editable={!sendingReset}
+                />
+                {resetError && <Text style={styles.errorText}>{resetError}</Text>}
+                <View style={styles.modalActions}>
+                  <Pressable
+                    style={styles.modalCancelButton}
+                    onPress={() => setShowForgotPassword(false)}
+                    disabled={sendingReset}
+                  >
+                    <Text style={styles.modalCancelText}>Cancel</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.modalSendButton, sendingReset && styles.modalSendButtonDisabled]}
+                    onPress={handleSendResetLink}
+                    disabled={sendingReset}
+                  >
+                    <Text style={styles.modalSendText}>{sendingReset ? 'Sending...' : 'Send Link'}</Text>
+                  </Pressable>
+                </View>
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -348,6 +373,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
     backgroundColor: theme.colors.primary,
+  },
+  modalSendButtonDisabled: {
+    opacity: 0.6,
   },
   modalSendText: {
     color: '#fff',

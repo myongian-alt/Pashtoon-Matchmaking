@@ -275,3 +275,22 @@ export async function resetPassword(email: string): Promise<AuthResponse> {
     return { success: false, error: error as Error };
   }
 }
+
+/**
+ * Set a new password - used to complete the forgot-password flow once the
+ * user has a valid recovery session (from clicking the emailed reset link),
+ * and also reusable for a logged-in user changing their password directly.
+ */
+export async function updatePassword(newPassword: string): Promise<AuthResponse> {
+  try {
+    const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+
+    if (error) {
+      return { success: false, error };
+    }
+
+    return { success: true, user: data.user };
+  } catch (error) {
+    return { success: false, error: error as Error };
+  }
+}

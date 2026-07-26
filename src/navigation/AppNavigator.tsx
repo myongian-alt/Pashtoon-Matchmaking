@@ -7,6 +7,7 @@ import AuthSelectionScreen from '../screens/auth/AuthSelectionScreen';
 import PhoneAuthScreen from '../screens/auth/PhoneAuthScreen';
 import EmailAuthScreen from '../screens/auth/EmailAuthScreen';
 import OtpVerificationScreen from '../screens/auth/OtpVerificationScreen';
+import NewPasswordScreen from '../screens/auth/NewPasswordScreen';
 import ChooseGenderScreen from '../screens/ChooseGenderScreen';
 import ProfileCompletionScreen from '../screens/profile/ProfileCompletionScreen';
 import ProfileFormScreen from '../screens/profile/ProfileFormScreen';
@@ -22,6 +23,8 @@ import { UserProvider, useUser } from '../context/UserContext';
 import { FormProvider, useForm } from '../context/FormContext';
 import { getProfile, getProfilePhotos, mapProfileRowToFormSnapshot } from '../lib/database';
 import { registerForPushNotificationsAsync } from '../lib/pushNotifications';
+import { initAuthDeepLinkHandling } from '../lib/authDeepLink';
+import { navigationRef, flushPendingNavigation } from './navigationRef';
 
 export type RootStackParamList = {
   Splash: undefined;
@@ -31,6 +34,7 @@ export type RootStackParamList = {
   EmailAuth: undefined;
   PhoneAuth: undefined;
   OtpVerification: { phone: string; gender?: 'male' | 'female' };
+  NewPassword: undefined;
   ProfileCompletion: undefined;
   ProfileForm: undefined;
   Tabs: undefined;
@@ -132,12 +136,16 @@ function ProfileHydrationBridge({ children }: { children: React.ReactNode }) {
 }
 
 export default function AppNavigator() {
+  useEffect(() => {
+    return initAuthDeepLinkHandling();
+  }, []);
+
   return (
     <FormProvider>
       <UserProvider>
         <ProfileHydrationBridge>
           <NotificationsProvider>
-            <NavigationContainer>
+            <NavigationContainer ref={navigationRef} onReady={flushPendingNavigation}>
               <Stack.Navigator screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="Splash" component={SplashScreen} />
                 <Stack.Screen name="Onboarding" component={OnboardingScreen} />
@@ -146,6 +154,7 @@ export default function AppNavigator() {
                 <Stack.Screen name="EmailAuth" component={EmailAuthScreen} />
                 <Stack.Screen name="PhoneAuth" component={PhoneAuthScreen} />
                 <Stack.Screen name="OtpVerification" component={OtpVerificationScreen} />
+                <Stack.Screen name="NewPassword" component={NewPasswordScreen} />
                 <Stack.Screen name="ProfileCompletion" component={ProfileCompletionScreen} />
                 <Stack.Screen name="ProfileForm" component={ProfileFormScreen} />
                 <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />
