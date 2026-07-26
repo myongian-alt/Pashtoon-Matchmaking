@@ -24,6 +24,7 @@ import { ModernMuslimAvatar } from '../components/common/ModernMuslimAvatar';
 import { LinkText } from '../components/common/LinkText';
 import { buildSelfProfileFromForm } from '../lib/selfProfile';
 import { signOut, updateEmail, updatePhone } from '../lib/auth';
+import { toSafeErrorMessage } from '../lib/errorMessages';
 import {
   getSubscriptionStatus,
   getPaymentHistory,
@@ -199,7 +200,7 @@ export default function AccountScreen() {
     setSavingEditField(false);
 
     if (!result.success) {
-      Alert.alert('Could not update', result.error?.message || 'Please try again.');
+      Alert.alert('Could not update', toSafeErrorMessage(result.error, 'Please try again.'));
       return;
     }
 

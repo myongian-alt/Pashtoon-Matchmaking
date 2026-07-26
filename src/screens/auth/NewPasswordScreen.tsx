@@ -14,6 +14,7 @@ import { theme } from '../../theme';
 import { AuthButton } from '../../components/common/AuthButton';
 import { useUser } from '../../context/UserContext';
 import { updatePassword } from '../../lib/auth';
+import { toSafeErrorMessage } from '../../lib/errorMessages';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 
 type NewPasswordNavigationProp = NativeStackNavigationProp<RootStackParamList, 'NewPassword'>;
@@ -47,7 +48,7 @@ export default function NewPasswordScreen() {
     setLoading(false);
 
     if (!result.success) {
-      setError(result.error?.message || 'Could not update your password. Please try again.');
+      setError(toSafeErrorMessage(result.error, 'Could not update your password. Please try again.'));
       return;
     }
 

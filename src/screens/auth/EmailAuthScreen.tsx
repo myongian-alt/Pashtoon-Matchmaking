@@ -17,6 +17,7 @@ import { theme } from '../../theme';
 import { AuthButton } from '../../components/common/AuthButton';
 import { useUser } from '../../context/UserContext';
 import { signInWithEmail, signUpWithEmail, resetPassword } from '../../lib/auth';
+import { toSafeErrorMessage } from '../../lib/errorMessages';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 
 type EmailAuthNavigationProp = NativeStackNavigationProp<RootStackParamList, 'EmailAuth'>;
@@ -63,7 +64,7 @@ export default function EmailAuthScreen() {
     if (response.success) {
       setResetSent(true);
     } else {
-      setResetError(response.error?.message || 'Could not send reset link. Please try again.');
+      setResetError(toSafeErrorMessage(response.error, 'Could not send reset link. Please try again.'));
     }
   };
 
@@ -103,11 +104,11 @@ export default function EmailAuthScreen() {
           })
         );
       } else {
-        setError(response.error?.message || 'Authentication failed');
+        setError(toSafeErrorMessage(response.error, 'Authentication failed. Please try again.'));
       }
     } catch (err) {
       setError('An unexpected error occurred');
-      console.error(err);
+      console.error('Email auth error:', (err as Error)?.message);
     } finally {
       setLoading(false);
     }

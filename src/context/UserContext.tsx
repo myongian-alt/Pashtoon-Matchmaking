@@ -52,7 +52,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     try {
       await AsyncStorage.setItem(`${PROFILE_COMPLETED_KEY_PREFIX}${storageUserId}`, value ? '1' : '0');
     } catch (error) {
-      console.warn('Failed to persist profile completion state:', error);
+      console.warn('Failed to persist profile completion state:', (error as Error)?.message);
     }
 
     try {
@@ -61,7 +61,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         console.warn('Failed to persist profile completion in database:', result.error.message);
       }
     } catch (error) {
-      console.warn('Failed to persist profile completion in database:', error);
+      console.warn('Failed to persist profile completion in database:', (error as Error)?.message);
     }
   };
 
@@ -78,7 +78,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       const value = await AsyncStorage.getItem(`${PROFILE_COMPLETED_KEY_PREFIX}${targetUserId}`);
       setProfileCompleted(value === '1');
     } catch (error) {
-      console.warn('Failed to load profile completion state:', error);
+      console.warn('Failed to load profile completion state:', (error as Error)?.message);
       setProfileCompleted(false);
     }
   };
@@ -103,7 +103,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           setLoading(false);
         }
       } catch (error) {
-        console.error('Auth init error:', error);
+        console.error('Auth init error:', (error as Error)?.message);
         setLoading(false);
       }
     };

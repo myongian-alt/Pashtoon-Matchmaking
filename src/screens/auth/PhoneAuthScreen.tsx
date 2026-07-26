@@ -18,6 +18,7 @@ import { AuthButton } from '../../components/common/AuthButton';
 import { LinkText } from '../../components/common/LinkText';
 import { useUser } from '../../context/UserContext';
 import { signUpWithPhone } from '../../lib/auth';
+import { toSafeErrorMessage } from '../../lib/errorMessages';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 
 type PhoneAuthNavigationProp = NativeStackNavigationProp<RootStackParamList, 'PhoneAuth'>;
@@ -70,19 +71,19 @@ export default function PhoneAuthScreen() {
           gender: selectedGender || undefined,
         });
       } else {
-        const message = response.error?.message || 'Failed to send OTP';
+        const rawMessage = (response.error?.message || '').toLowerCase();
 
-        if (message.toLowerCase().includes('unsupported phone provider')) {
+        if (rawMessage.includes('unsupported phone provider')) {
           setError(
             'Phone login is not enabled for this Supabase project yet. Please configure an SMS provider in Supabase Auth > Providers.'
           );
         } else {
-          setError(message);
+          setError(toSafeErrorMessage(response.error, 'Failed to send OTP. Please try again.'));
         }
       }
     } catch (err) {
       setError('An unexpected error occurred');
-      console.error(err);
+      console.error('Phone auth error:', (err as Error)?.message);
     } finally {
       setLoading(false);
     }

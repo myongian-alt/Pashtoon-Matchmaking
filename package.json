@@ -23,7 +23,6 @@
     "expo-image-picker": "~56.0.22",
     "expo-linking": "~7.0.5",
     "expo-notifications": "~56.0.22",
-    "expo-status-bar": "~56.0.4",
     "react": "18.2.0",
     "react-dom": "^18.2.0",
     "react-native": "0.72.8",

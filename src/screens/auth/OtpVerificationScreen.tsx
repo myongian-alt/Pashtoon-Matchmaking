@@ -17,6 +17,7 @@ import { theme } from '../../theme';
 import { AuthButton } from '../../components/common/AuthButton';
 import { useUser } from '../../context/UserContext';
 import { verifyOtp, signUpWithPhone } from '../../lib/auth';
+import { toSafeErrorMessage } from '../../lib/errorMessages';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 
 type OtpVerificationNavigationProp = NativeStackNavigationProp<RootStackParamList, 'OtpVerification'>;
@@ -65,11 +66,11 @@ export default function OtpVerificationScreen() {
           })
         );
       } else {
-        setError(response.error?.message || 'Invalid OTP. Please try again.');
+        setError(toSafeErrorMessage(response.error, 'Invalid OTP. Please try again.'));
       }
     } catch (err) {
       setError('An unexpected error occurred');
-      console.error(err);
+      console.error('OTP verification error:', (err as Error)?.message);
     } finally {
       setLoading(false);
     }

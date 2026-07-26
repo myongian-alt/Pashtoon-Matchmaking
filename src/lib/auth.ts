@@ -114,28 +114,6 @@ export async function verifyOtp(
 }
 
 /**
- * Sign in with Google (OAuth)
- */
-export async function signInWithGoogle(): Promise<AuthResponse> {
-  try {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: Linking.createURL('/'),
-      },
-    });
-
-    if (error) {
-      return { success: false, error };
-    }
-
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error as Error };
-  }
-}
-
-/**
  * Get current user
  */
 export async function getCurrentUser() {
@@ -149,23 +127,6 @@ export async function getCurrentUser() {
     return { success: true, user: data.user };
   } catch (error) {
     return { success: false, user: null, error: error as Error };
-  }
-}
-
-/**
- * Get current session
- */
-export async function getCurrentSession() {
-  try {
-    const { data, error } = await supabase.auth.getSession();
-
-    if (error) {
-      return { success: false, session: null, error };
-    }
-
-    return { success: true, session: data.session };
-  } catch (error) {
-    return { success: false, session: null, error: error as Error };
   }
 }
 

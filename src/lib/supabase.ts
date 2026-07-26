@@ -2,8 +2,18 @@ import { createClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const SUPABASE_URL = 'https://ngohyujweyxmrbbusufa.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_xoyTFJL0efZXmPeIjoxhBg_GPofmZ-3';
+// EXPO_PUBLIC_ vars are inlined into the client bundle by Expo automatically
+// (built into the SDK, no extra babel/dotenv plugin needed) - this is the
+// anon/publishable key, designed by Supabase to be public and safe to ship;
+// Row Level Security, not secrecy of this key, is the actual access boundary.
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  throw new Error(
+    'Missing EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_ANON_KEY - check .env (see .env.example).'
+  );
+}
 
 // Initialize Supabase client
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {

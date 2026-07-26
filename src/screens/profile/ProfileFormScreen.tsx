@@ -204,7 +204,8 @@ export default function ProfileFormScreen() {
 
       if (result.error || !result.data) {
         setSavingProfile(false);
-        Alert.alert('Profile Save Failed', result.error?.message || 'Unable to save your profile right now.');
+        console.error('Profile save failed:', result.error?.message);
+        Alert.alert('Profile Save Failed', 'Unable to save your profile right now. Please try again.');
         return;
       }
 
