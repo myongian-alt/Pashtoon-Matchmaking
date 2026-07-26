@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import ProfileDiscoveryScreen from '../screens/ProfileDiscoveryScreen';
 import HomeScreen from '../screens/HomeScreen';
 import { FavoritesScreen } from '../screens/FavoritesScreen';
+import MessagesScreen from '../screens/MessagesScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import AccountScreen from '../screens/AccountScreen';
 import { theme } from '../theme';
@@ -38,6 +39,7 @@ export default function TabNavigator() {
           if (route.name === 'Discover') iconName = 'cards-heart';
           if (route.name === 'Home') iconName = 'home';
           if (route.name === 'Favorites') iconName = 'heart';
+          if (route.name === 'Messages') iconName = 'chat-outline';
           if (route.name === 'Notifications') iconName = 'bell';
           if (route.name === 'Account') iconName = 'account-circle';
 
@@ -48,6 +50,7 @@ export default function TabNavigator() {
       <Tab.Screen name="Discover" component={ProfileDiscoveryScreen} options={{ tabBarLabel: 'Discover' }} />
       <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: 'Home' }} />
       <Tab.Screen name="Favorites" component={FavoritesScreen} options={{ tabBarLabel: 'Favorites' }} />
+      <Tab.Screen name="Messages" component={MessagesScreen} options={{ tabBarLabel: 'Messages' }} />
       <Tab.Screen
         name="Notifications"
         component={NotificationsScreen}

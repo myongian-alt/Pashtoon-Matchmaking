@@ -33,6 +33,7 @@ import {
   getAccountSettings,
   setNotificationsEnabled,
   deactivateAccount,
+  requestProfileVerification,
 } from '../lib/database';
 
 type AccountNavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -68,6 +69,7 @@ export default function AccountScreen() {
   const [savingEditField, setSavingEditField] = useState(false);
 
   const [signingOut, setSigningOut] = useState(false);
+  const [requestingVerification, setRequestingVerification] = useState(false);
 
   useEffect(() => {
     if (isGuest || !userId) {
@@ -166,6 +168,20 @@ export default function AccountScreen() {
       setNotificationsEnabledState(!value);
       Alert.alert('Could not update', 'Please try again.');
     }
+  };
+
+  const handleRequestVerification = async () => {
+    setRequestingVerification(true);
+    const result = await requestProfileVerification();
+    setRequestingVerification(false);
+
+    if (result.error) {
+      Alert.alert('Could not submit request', 'Please try again.');
+      return;
+    }
+
+    setVerification(result.data);
+    Alert.alert('Request submitted', "We'll review your profile and notify you once it's verified.");
   };
 
   const openEditField = (field: 'email' | 'phone') => {
@@ -347,8 +363,23 @@ export default function AccountScreen() {
             <Text style={styles.verificationText}>
               {verification?.is_verified
                 ? 'Your profile is verified.'
-                : 'Your profile is not verified yet. Complete your profile and contact support to request verification.'}
+                : verification?.verification_requested_at
+                ? "Verification requested — we'll notify you once it's reviewed."
+                : 'Get a verified badge on your profile to build trust with other members.'}
             </Text>
+            {!verification?.is_verified && !verification?.verification_requested_at ? (
+              <Pressable
+                style={[styles.primaryButton, requestingVerification && styles.primaryButtonDisabled]}
+                onPress={handleRequestVerification}
+                disabled={requestingVerification}
+              >
+                {requestingVerification ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>Request Verification</Text>
+                )}
+              </Pressable>
+            ) : null}
           </View>
 
           {/* Discovery preferences */}
@@ -801,6 +832,9 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: 15,
+  },
+  primaryButtonDisabled: {
+    opacity: 0.6,
   },
   outlineButton: {
     marginTop: 14,

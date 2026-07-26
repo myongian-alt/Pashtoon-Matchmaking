@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { theme } from '../theme';
 import { useForm } from '../context/FormContext';
 import { useUser } from '../context/UserContext';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { buildSelfProfileFromForm } from '../lib/selfProfile';
+import { getWhoLikedMe, getMatches, getShortlistedProfiles, getProfileViewers } from '../lib/database';
 
 type HomeNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -16,21 +17,53 @@ const cards = [
   { title: 'Verified Profiles', subtitle: 'Profiles with trusted verification.', amount: '12' },
 ];
 
-const statistics = [
-  { label: 'Profile Strength', value: '78%' },
-  { label: 'Liked you', value: '14' },
-  { label: 'People matched', value: '6' },
-  { label: 'Saved profiles', value: '9' },
-];
-
 export default function HomeScreen() {
   const navigation = useNavigation<HomeNavigationProp>();
   const { formData } = useForm();
-  const { profileCompleted, selectedGender } = useUser();
+  const { profileCompleted, selectedGender, userId, isGuest } = useUser();
+  const [likedYouCount, setLikedYouCount] = useState(0);
+  const [matchedCount, setMatchedCount] = useState(0);
+  const [savedCount, setSavedCount] = useState(0);
+  const [viewedCount, setViewedCount] = useState(0);
 
   const handleViewMyProfile = () => {
     navigation.navigate('ProfileDetail', { profile: buildSelfProfileFromForm(formData, selectedGender) });
   };
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!userId || isGuest) {
+        return;
+      }
+
+      let isMounted = true;
+
+      Promise.all([
+        getWhoLikedMe(userId),
+        getMatches(userId),
+        getShortlistedProfiles(userId),
+        getProfileViewers(userId),
+      ]).then(([likedResult, matchesResult, savedResult, viewedResult]) => {
+        if (!isMounted) return;
+        if (!likedResult.error) setLikedYouCount((likedResult.data || []).length);
+        if (!matchesResult.error) setMatchedCount((matchesResult.data || []).length);
+        if (!savedResult.error) setSavedCount((savedResult.data || []).length);
+        if (!viewedResult.error) setViewedCount((viewedResult.data || []).length);
+      });
+
+      return () => {
+        isMounted = false;
+      };
+    }, [userId, isGuest])
+  );
+
+  const statistics = [
+    { label: 'Profile Strength', value: `${Math.round(formData.profileStrength || 0)}%`, onPress: handleViewMyProfile },
+    { label: 'Liked you', value: String(likedYouCount), onPress: () => navigation.navigate('LikesYou') },
+    { label: 'People matched', value: String(matchedCount), onPress: () => navigation.navigate('Discover' as never) },
+    { label: 'Saved profiles', value: String(savedCount), onPress: () => navigation.navigate('Favorites' as never) },
+    { label: 'Profile views', value: String(viewedCount), onPress: () => navigation.navigate('WhoViewedMe') },
+  ];
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
@@ -101,10 +134,10 @@ export default function HomeScreen() {
 
       <View style={styles.statsSection}>
         {statistics.map((stat) => (
-          <View key={stat.label} style={styles.statRow}>
+          <Pressable key={stat.label} style={styles.statRow} onPress={stat.onPress}>
             <Text style={styles.statLabel}>{stat.label}</Text>
             <Text style={styles.statValue}>{stat.value}</Text>
-          </View>
+          </Pressable>
         ))}
       </View>
     </ScrollView>

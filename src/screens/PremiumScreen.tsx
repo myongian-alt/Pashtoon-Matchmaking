@@ -1,8 +1,11 @@
-import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import React, { useCallback, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../theme';
 import { AppBottomNav } from '../components/common/AppBottomNav';
+import { useUser } from '../context/UserContext';
+import { getSubscriptionStatus, processPayment } from '../lib/database';
 
 const benefits = [
   'Unlimited likes and favorites',
@@ -14,6 +17,53 @@ const benefits = [
 
 export default function PremiumScreen() {
   const navigation = useNavigation();
+  const { userId, isGuest, setPaymentCompleted } = useUser();
+  const [subscription, setSubscription] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [processingMethod, setProcessingMethod] = useState<'card' | 'admin_contact' | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!userId || isGuest) {
+        setLoading(false);
+        return;
+      }
+
+      let isMounted = true;
+      setLoading(true);
+      getSubscriptionStatus(userId).then((result) => {
+        if (isMounted) {
+          setSubscription(result.error ? null : result.data);
+          setLoading(false);
+        }
+      });
+
+      return () => {
+        isMounted = false;
+      };
+    }, [userId, isGuest])
+  );
+
+  const handlePayment = async (method: 'card' | 'admin_contact') => {
+    if (isGuest || !userId) {
+      navigation.navigate('AuthSelection' as never);
+      return;
+    }
+
+    setProcessingMethod(method);
+    const result = await processPayment(userId, 30, method);
+    setProcessingMethod(null);
+
+    if (result.error) {
+      Alert.alert('Payment failed', 'Could not process your payment right now. Please try again.');
+      return;
+    }
+
+    setPaymentCompleted(true);
+    navigation.navigate('PaymentSuccess' as never);
+  };
+
+  const isPremium = Boolean(subscription && new Date(subscription.expires_at) > new Date());
 
   return (
     <View style={styles.container}>
@@ -21,10 +71,24 @@ export default function PremiumScreen() {
         <Text style={styles.title}>Khpalwali Premium</Text>
         <Text style={styles.subtitle}>Unlock the full premium experience for serious families and trusted connections.</Text>
 
-        <View style={styles.priceCard}>
-          <Text style={styles.priceTitle}>USD 30 / month</Text>
-          <Text style={styles.priceNote}>Billed monthly for unlimited access and priority features.</Text>
-        </View>
+        {loading ? (
+          <View style={styles.loaderCard}>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+          </View>
+        ) : isPremium ? (
+          <View style={styles.activeCard}>
+            <MaterialCommunityIcons name="crown" size={30} color="#D4AF37" />
+            <Text style={styles.activeTitle}>You're Premium</Text>
+            <Text style={styles.activeNote}>
+              Active until {new Date(subscription.expires_at).toLocaleDateString()}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.priceCard}>
+            <Text style={styles.priceTitle}>USD 30 one-time</Text>
+            <Text style={styles.priceNote}>Unlocks premium access for 12 months. No recurring charge.</Text>
+          </View>
+        )}
 
         <View style={styles.section}>
           <Text style={styles.sectionHeading}>Premium benefits</Text>
@@ -36,26 +100,42 @@ export default function PremiumScreen() {
           ))}
         </View>
 
-        <View style={styles.paymentSection}>
-          <Text style={styles.paymentTitle}>Payment methods</Text>
-          <View style={styles.paymentRow}>
-            <Text style={styles.paymentMethod}>Credit Card</Text>
-            <Text style={styles.paymentMethod}>Apple Pay</Text>
-          </View>
-          <View style={styles.paymentRow}>
-            <Text style={styles.paymentMethod}>Google Pay</Text>
-            <Text style={styles.paymentMethod}>PayPal</Text>
-          </View>
-          <Text style={styles.paymentNote}>Also support local payment methods based on your region.</Text>
-        </View>
+        {!isPremium ? (
+          <>
+            <View style={styles.paymentSection}>
+              <Text style={styles.paymentTitle}>Payment methods</Text>
+              <View style={styles.paymentRow}>
+                <Text style={styles.paymentMethod}>Credit Card</Text>
+                <Text style={styles.paymentMethod}>Apple Pay</Text>
+              </View>
+              <View style={styles.paymentRow}>
+                <Text style={styles.paymentMethod}>Google Pay</Text>
+                <Text style={styles.paymentMethod}>PayPal</Text>
+              </View>
+              <Text style={styles.paymentNote}>Also support local payment methods based on your region.</Text>
+            </View>
 
-        <Pressable style={styles.subscribeButton} onPress={() => {}}>
-          <Text style={styles.subscribeText}>Subscribe now</Text>
-        </Pressable>
+            <Pressable
+              style={[styles.subscribeButton, processingMethod && styles.subscribeButtonDisabled]}
+              onPress={() => handlePayment('card')}
+              disabled={Boolean(processingMethod)}
+            >
+              <Text style={styles.subscribeText}>
+                {processingMethod === 'card' ? 'Processing...' : 'Subscribe now'}
+              </Text>
+            </Pressable>
 
-        <Pressable style={styles.contactAdmin} onPress={() => {}}>
-          <Text style={styles.contactAdminText}>Contact Admin</Text>
-        </Pressable>
+            <Pressable
+              style={styles.contactAdmin}
+              onPress={() => handlePayment('admin_contact')}
+              disabled={Boolean(processingMethod)}
+            >
+              <Text style={styles.contactAdminText}>
+                {processingMethod === 'admin_contact' ? 'Sending request...' : 'Contact Admin'}
+              </Text>
+            </Pressable>
+          </>
+        ) : null}
 
         <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
           <Text style={styles.backText}>Back to home</Text>
@@ -88,6 +168,30 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     marginBottom: 28,
     maxWidth: 340,
+  },
+  loaderCard: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
+  activeCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 2,
+    borderColor: '#D4AF37',
+    marginBottom: 26,
+    alignItems: 'center',
+  },
+  activeTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: theme.colors.text,
+    marginTop: 10,
+  },
+  activeNote: {
+    color: theme.colors.textSecondary,
+    fontSize: 14,
+    marginTop: 6,
   },
   priceCard: {
     backgroundColor: theme.colors.surface,
@@ -175,6 +279,9 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     alignItems: 'center',
     marginBottom: 16,
+  },
+  subscribeButtonDisabled: {
+    opacity: 0.6,
   },
   subscribeText: {
     color: '#fff',

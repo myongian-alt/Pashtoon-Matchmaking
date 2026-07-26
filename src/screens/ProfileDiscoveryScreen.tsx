@@ -1,12 +1,12 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View, FlatList, Image, ActivityIndicator, Modal, TextInput, Alert } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { theme } from '../theme';
 import { useUser } from '../context/UserContext';
 import { RootStackParamList } from '../navigation/AppNavigator';
-import { getDiscoveryProfiles, getMatches, likeProfile, EDUCATION_LEVEL_DISPLAY } from '../lib/database';
+import { getDiscoveryProfiles, getMatches, likeProfile, removeLike, getShortlistedProfiles, getWhoLikedMe, getConversationWithUser, EDUCATION_LEVEL_DISPLAY } from '../lib/database';
 import { ModernMuslimAvatar } from '../components/common/ModernMuslimAvatar';
 import { LoginPromptModal } from '../components/common/LoginPromptModal';
 import { SmartRecommendationsStrip } from '../components/ai/SmartRecommendationsStrip';
@@ -251,6 +251,7 @@ export default function ProfileDiscoveryScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { selectedGender, userId, loading, isGuest } = useUser();
   const [likedProfiles, setLikedProfiles] = useState<string[]>([]);
+  const [shortlistedProfiles, setShortlistedProfiles] = useState<string[]>([]);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [discoverProfiles, setDiscoverProfiles] = useState<ProfileListItem[]>([]);
   const [matchedProfiles, setMatchedProfiles] = useState<ProfileListItem[]>([]);
@@ -261,6 +262,7 @@ export default function ProfileDiscoveryScreen() {
   const [appliedFilters, setAppliedFilters] = useState<DiscoveryFilters>(EMPTY_FILTERS);
   const [draftFilters, setDraftFilters] = useState<DiscoveryFilters>(EMPTY_FILTERS);
   const [smartRecommendations, setSmartRecommendations] = useState<SmartMatchRecommendation[]>([]);
+  const [likesYouCount, setLikesYouCount] = useState(0);
 
   const targetGender = useMemo(() => {
     if (selectedGender === 'male') return 'female';
@@ -362,6 +364,54 @@ export default function ProfileDiscoveryScreen() {
   }, [loading, userId, targetGender]);
 
   useEffect(() => {
+    let isMounted = true;
+
+    const hydrateShortlisted = async () => {
+      if (!userId || (!discoverProfiles.length && !matchedProfiles.length)) {
+        return;
+      }
+
+      const result = await getShortlistedProfiles(userId);
+      if (!isMounted || result.error || !result.data) {
+        return;
+      }
+
+      const shortlistedUserIds = new Set(result.data.map((row: any) => row.userId));
+      const matchingIds = [...discoverProfiles, ...matchedProfiles]
+        .filter((item) => item.userId && shortlistedUserIds.has(item.userId))
+        .map((item) => item.id);
+
+      setShortlistedProfiles((prev) => Array.from(new Set([...prev, ...matchingIds])));
+    };
+
+    hydrateShortlisted();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [userId, discoverProfiles, matchedProfiles]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!userId) {
+        setLikesYouCount(0);
+        return;
+      }
+
+      let isMounted = true;
+      getWhoLikedMe(userId).then((result) => {
+        if (isMounted && !result.error) {
+          setLikesYouCount((result.data || []).length);
+        }
+      });
+
+      return () => {
+        isMounted = false;
+      };
+    }, [userId])
+  );
+
+  useEffect(() => {
     let mounted = true;
 
     const loadRecommendations = async () => {
@@ -419,6 +469,30 @@ export default function ProfileDiscoveryScreen() {
     }
   };
 
+  const handleShortlist = async (item: ProfileListItem) => {
+    if (isGuest) {
+      setShowLoginPrompt(true);
+      return;
+    }
+
+    const isShortlisted = shortlistedProfiles.includes(item.id);
+    setShortlistedProfiles((prev) =>
+      isShortlisted ? prev.filter((id) => id !== item.id) : [...prev, item.id]
+    );
+
+    if (!item.userId) {
+      return;
+    }
+
+    const result = isShortlisted ? await removeLike(item.userId) : await likeProfile(item.userId, 'shortlist');
+    if (result.error) {
+      setShortlistedProfiles((prev) =>
+        isShortlisted ? [...prev, item.id] : prev.filter((id) => id !== item.id)
+      );
+      Alert.alert('Could not update favorites', 'Please try again.');
+    }
+  };
+
   const handleSkip = async (item: ProfileListItem) => {
     if (isGuest) {
       setShowLoginPrompt(true);
@@ -445,6 +519,26 @@ export default function ProfileDiscoveryScreen() {
   const handleViewProfile = (profile: ProfileListItem) => {
     navigation.navigate('ProfileDetail', {
       profile,
+    });
+  };
+
+  const handleMessage = async (item: ProfileListItem) => {
+    if (!userId || !item.userId) {
+      Alert.alert('Not available', 'Could not open this conversation right now.');
+      return;
+    }
+
+    const result = await getConversationWithUser(userId, item.userId);
+
+    if (result.error || !result.data) {
+      Alert.alert('Conversation not found', 'You need to match with this person before you can message them.');
+      return;
+    }
+
+    navigation.navigate('Chat', {
+      conversationId: result.data.id,
+      counterpartName: item.name,
+      counterpartUserId: item.userId,
     });
   };
 
@@ -483,9 +577,8 @@ export default function ProfileDiscoveryScreen() {
   const listData = activeMode === 'discover' ? filteredDiscoverProfiles : filteredMatchedProfiles;
   const isLoading = activeMode === 'discover' ? loadingDiscover : loadingMatches;
 
-  const renderProfileCard = ({ item }: { item: ProfileListItem }) => {
-    const isLiked = likedProfiles.includes(item.id);
-
+  // Matches only - Discover uses the compact grid below (renderDiscoverGridCard).
+  const renderMatchCard = ({ item }: { item: ProfileListItem }) => {
     return (
       <Pressable style={styles.profileCard} onPress={() => handleViewProfile(item)}>
         <View style={styles.imageContainer}>
@@ -493,7 +586,7 @@ export default function ProfileDiscoveryScreen() {
             <Image source={item.image} style={styles.profileImage} />
           ) : (
             <View style={styles.emptyImage}>
-              <ModernMuslimAvatar gender={item.gender} size={130} />
+              <ModernMuslimAvatar gender={item.gender} size={170} />
             </View>
           )}
         </View>
@@ -506,12 +599,10 @@ export default function ProfileDiscoveryScreen() {
           />
         </View>
 
-        {item.source === 'matches' ? (
-          <View style={styles.matchBadge}>
-            <MaterialCommunityIcons name="star" size={14} color="#fff" />
-            <Text style={styles.matchBadgeText}>Matched</Text>
-          </View>
-        ) : null}
+        <View style={styles.matchBadge}>
+          <MaterialCommunityIcons name="star" size={14} color="#fff" />
+          <Text style={styles.matchBadgeText}>Matched</Text>
+        </View>
 
         <View style={styles.cardContent}>
           <Text style={styles.profileName}>{item.name}</Text>
@@ -528,39 +619,117 @@ export default function ProfileDiscoveryScreen() {
             <Text style={styles.maritalStatusText}>{item.maritalStatus}</Text>
           </View>
 
+          {item.aboutMe ? (
+            <Text style={styles.aboutMeText} numberOfLines={2}>
+              {item.aboutMe}
+            </Text>
+          ) : null}
+
           <View style={styles.biodataSection}>
             <View style={styles.biodataItem}>
               <MaterialCommunityIcons name="school" size={18} color={theme.colors.primary} />
-              <Text style={styles.biodataLabel}>Education</Text>
-              <Text style={styles.biodataValue}>{item.education || 'Not set'}</Text>
+              <View style={styles.biodataTextCol}>
+                <Text style={styles.biodataLabel}>Education</Text>
+                <Text style={styles.biodataValue} numberOfLines={1}>{item.education || 'Not set'}</Text>
+              </View>
             </View>
-            <View style={[styles.biodataItem, styles.biodataItemWithTopSpacing]}>
+            <View style={styles.biodataDivider} />
+            <View style={styles.biodataItem}>
               <MaterialCommunityIcons name="briefcase" size={18} color={theme.colors.primary} />
-              <Text style={styles.biodataLabel}>Profession</Text>
-              <Text style={styles.biodataValue}>{item.profession || 'Not set'}</Text>
+              <View style={styles.biodataTextCol}>
+                <Text style={styles.biodataLabel}>Profession</Text>
+                <Text style={styles.biodataValue} numberOfLines={1}>{item.profession || 'Not set'}</Text>
+              </View>
             </View>
           </View>
 
           <View style={styles.actionButtons}>
-            <Pressable style={styles.skipButton} onPress={() => handleSkip(item)}>
-              <MaterialCommunityIcons name="close" size={20} color={theme.colors.primary} />
-              <Text style={styles.buttonLabel}>Skip</Text>
-            </Pressable>
-
-            <Pressable style={[styles.likeButton, isLiked && styles.likeButtonActive]} onPress={() => handleLike(item)}>
-              <MaterialCommunityIcons
-                name={isLiked ? 'heart' : 'heart-outline'}
-                size={22}
-                color={isLiked ? '#E74C3C' : '#FFFFFF'}
-              />
-              <Text style={styles.likeButtonLabel}>{isLiked ? 'Liked' : 'Like'}</Text>
-            </Pressable>
-
             <Pressable style={styles.viewButton} onPress={() => handleViewProfile(item)}>
               <MaterialCommunityIcons name="eye" size={20} color={theme.colors.primary} />
               <Text style={styles.buttonLabel}>View</Text>
             </Pressable>
+            <Pressable style={styles.likeButton} onPress={() => handleMessage(item)}>
+              <MaterialCommunityIcons name="chat-outline" size={20} color="#FFFFFF" />
+              <Text style={styles.likeButtonLabel}>Message</Text>
+            </Pressable>
           </View>
+        </View>
+      </Pressable>
+    );
+  };
+
+  const renderDiscoverGridCard = ({ item }: { item: ProfileListItem }) => {
+    const isLiked = likedProfiles.includes(item.id);
+    const isShortlisted = shortlistedProfiles.includes(item.id);
+    const educationProfession = [item.education, item.profession].filter((value) => value && value !== 'Not set').join(' · ');
+
+    return (
+      <Pressable style={styles.gridCard} onPress={() => handleViewProfile(item)}>
+        <View style={styles.gridImageContainer}>
+          {item.image ? (
+            <Image source={item.image} style={styles.gridImage} resizeMode="cover" />
+          ) : (
+            <View style={styles.gridEmptyImage}>
+              <ModernMuslimAvatar gender={item.gender} size={72} />
+            </View>
+          )}
+
+          <Pressable
+            style={styles.gridBookmarkButton}
+            onPress={(e: any) => {
+              e.stopPropagation?.();
+              handleShortlist(item);
+            }}
+          >
+            <MaterialCommunityIcons
+              name={isShortlisted ? 'bookmark' : 'bookmark-outline'}
+              size={16}
+              color={isShortlisted ? '#D4AF37' : '#fff'}
+            />
+          </Pressable>
+
+          <View style={styles.gridTopRightActions}>
+            <Pressable
+              style={styles.gridSkipButton}
+              onPress={(e: any) => {
+                e.stopPropagation?.();
+                handleSkip(item);
+              }}
+            >
+              <MaterialCommunityIcons name="close" size={15} color="#fff" />
+            </Pressable>
+
+            <Pressable
+              style={[styles.gridLikeButton, isLiked && styles.gridLikeButtonActive]}
+              onPress={(e: any) => {
+                e.stopPropagation?.();
+                handleLike(item);
+              }}
+            >
+              <MaterialCommunityIcons
+                name={isLiked ? 'heart' : 'heart-outline'}
+                size={15}
+                color={isLiked ? '#E74C3C' : '#fff'}
+              />
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={styles.gridCardContent}>
+          <Text style={styles.gridName} numberOfLines={1}>
+            {item.name}{item.age ? `, ${item.age}` : ''}
+          </Text>
+          <View style={styles.gridInfoRow}>
+            <MaterialCommunityIcons name="map-marker" size={12} color="#C9A876" />
+            <Text style={styles.gridInfoText} numberOfLines={1}>{item.location}</Text>
+          </View>
+          <View style={styles.gridInfoRow}>
+            <MaterialCommunityIcons name="ring" size={12} color="#D4AF37" />
+            <Text style={styles.gridMaritalText} numberOfLines={1}>{item.maritalStatus}</Text>
+          </View>
+          {educationProfession ? (
+            <Text style={styles.gridBiodataText} numberOfLines={1}>{educationProfession}</Text>
+          ) : null}
         </View>
       </Pressable>
     );
@@ -573,16 +742,31 @@ export default function ProfileDiscoveryScreen() {
           <MaterialCommunityIcons name="chevron-left" size={28} color={theme.colors.primary} />
         </Pressable>
         <Text style={styles.headerTitle}>Discover & Matches</Text>
-        <Pressable
-          style={styles.filterButton}
-          onPress={() => {
-            setDraftFilters(appliedFilters);
-            setFilterModalVisible(true);
-          }}
-        >
-          <MaterialCommunityIcons name="tune-variant" size={20} color={theme.colors.primary} />
-          {activeFilterCount > 0 ? <View style={styles.filterBadge}><Text style={styles.filterBadgeText}>{activeFilterCount}</Text></View> : null}
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable
+            style={styles.filterButton}
+            onPress={() => {
+              if (isGuest) {
+                setShowLoginPrompt(true);
+                return;
+              }
+              navigation.navigate('LikesYou');
+            }}
+          >
+            <MaterialCommunityIcons name="heart-multiple-outline" size={20} color={theme.colors.primary} />
+            {likesYouCount > 0 ? <View style={styles.filterBadge}><Text style={styles.filterBadgeText}>{likesYouCount}</Text></View> : null}
+          </Pressable>
+          <Pressable
+            style={styles.filterButton}
+            onPress={() => {
+              setDraftFilters(appliedFilters);
+              setFilterModalVisible(true);
+            }}
+          >
+            <MaterialCommunityIcons name="tune-variant" size={20} color={theme.colors.primary} />
+            {activeFilterCount > 0 ? <View style={styles.filterBadge}><Text style={styles.filterBadgeText}>{activeFilterCount}</Text></View> : null}
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.segmentContainer}>
@@ -617,9 +801,11 @@ export default function ProfileDiscoveryScreen() {
         </View>
       ) : (
         <FlatList
+          key={activeMode}
           data={listData}
           keyExtractor={(item) => `${activeMode}-${item.id}`}
-          numColumns={1}
+          numColumns={activeMode === 'discover' ? 2 : 1}
+          columnWrapperStyle={activeMode === 'discover' ? styles.gridRow : undefined}
           contentContainerStyle={styles.profilesList}
           ListHeaderComponent={
             activeMode === 'discover' ? (
@@ -629,7 +815,7 @@ export default function ProfileDiscoveryScreen() {
               />
             ) : null
           }
-          renderItem={renderProfileCard}
+          renderItem={activeMode === 'discover' ? renderDiscoverGridCard : renderMatchCard}
           ListEmptyComponent={
             <View style={styles.loaderContainer}>
               <Text style={styles.loaderText}>
@@ -765,6 +951,10 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
   },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
   filterButton: {
     width: 44,
     height: 44,
@@ -832,6 +1022,99 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   profilesList: { padding: 16, paddingBottom: 100 },
+  gridRow: { justifyContent: 'flex-start', gap: 10 },
+  gridCard: {
+    flex: 1,
+    marginBottom: 12,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  gridImageContainer: { width: '100%', aspectRatio: 1, backgroundColor: '#F0E8E0' },
+  gridImage: { width: '100%', height: '100%' },
+  gridEmptyImage: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF5E5',
+  },
+  gridBookmarkButton: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(19, 78, 54, 0.75)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gridTopRightActions: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    flexDirection: 'row',
+    gap: 6,
+  },
+  gridSkipButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(19, 78, 54, 0.75)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gridLikeButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(19, 78, 54, 0.75)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gridLikeButtonActive: {
+    backgroundColor: 'rgba(231, 76, 60, 0.85)',
+  },
+  gridCardContent: {
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    gap: 4,
+  },
+  gridName: {
+    color: '#1F2924',
+    fontSize: 15,
+    fontWeight: '800',
+    fontFamily: 'Georgia',
+  },
+  gridInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  gridInfoText: {
+    color: '#5A6360',
+    fontSize: 12,
+    fontFamily: 'Georgia',
+    flexShrink: 1,
+  },
+  gridMaritalText: {
+    color: '#D4AF37',
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: 'Georgia',
+  },
+  gridBiodataText: {
+    color: '#1F2924',
+    fontSize: 12,
+    fontFamily: 'Georgia',
+    fontWeight: '600',
+    marginTop: 2,
+  },
   profileCard: {
     borderRadius: 24,
     overflow: 'hidden',
@@ -843,7 +1126,7 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 8,
   },
-  imageContainer: { width: '100%', height: 260, backgroundColor: '#F0E8E0' },
+  imageContainer: { width: '100%', aspectRatio: 1, backgroundColor: '#F0E8E0' },
   profileImage: { width: '100%', height: '100%', resizeMode: 'cover' },
   emptyImage: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF5E5' },
   genderBadge: {
@@ -876,41 +1159,40 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-  cardContent: { padding: 20 },
+  cardContent: { padding: 18 },
   profileName: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '800',
     color: '#1F2924',
     fontFamily: 'Georgia',
-    marginBottom: 8,
+    marginBottom: 6,
   },
-  ageLocationRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  ageLocationRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
   infoText: { fontSize: 14, color: '#5A6360', fontFamily: 'Georgia', flexShrink: 1 },
-  maritalStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 14 },
+  maritalStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
   maritalStatusText: { fontSize: 13, color: '#D4AF37', fontWeight: '700', fontFamily: 'Georgia' },
+  aboutMeText: {
+    fontSize: 13,
+    color: '#5A6360',
+    fontFamily: 'Georgia',
+    lineHeight: 19,
+    marginBottom: 12,
+  },
   biodataSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#F5E6D3',
     borderRadius: 16,
-    padding: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     marginBottom: 16,
   },
-  biodataItem: { alignItems: 'center' },
-  biodataItemWithTopSpacing: { marginTop: 12 },
-  biodataLabel: { fontSize: 12, color: '#5A6360', fontFamily: 'Georgia', marginTop: 6, fontWeight: '600' },
-  biodataValue: { fontSize: 13, color: '#1F2924', fontFamily: 'Georgia', fontWeight: '700', marginTop: 2, textAlign: 'center' },
+  biodataItem: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  biodataDivider: { width: 1, height: 32, backgroundColor: '#E0D2BE', marginHorizontal: 10 },
+  biodataTextCol: { flex: 1 },
+  biodataLabel: { fontSize: 11, color: '#5A6360', fontFamily: 'Georgia', fontWeight: '600' },
+  biodataValue: { fontSize: 13, color: '#1F2924', fontFamily: 'Georgia', fontWeight: '700', marginTop: 1 },
   actionButtons: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-  skipButton: {
-    flex: 1,
-    height: 48,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: theme.colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-    flexDirection: 'row',
-    gap: 6,
-  },
   likeButton: {
     flex: 1.2,
     height: 48,
@@ -921,7 +1203,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 6,
   },
-  likeButtonActive: { backgroundColor: '#E74C3C' },
   viewButton: {
     flex: 1,
     height: 48,

@@ -1,11 +1,28 @@
 import React from 'react';
 import { FlatList, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNotifications } from '../context/NotificationsContext';
+import { useUser } from '../context/UserContext';
 import { theme } from '../theme';
 
 export function NotificationsScreen() {
   const { notifications, markAsRead, markAllRead } = useNotifications();
+  const { isGuest } = useUser();
   const unreadCount = notifications.filter((item) => item.unread).length;
+
+  if (isGuest) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Notifications</Text>
+        </View>
+        <View style={styles.emptyState}>
+          <MaterialCommunityIcons name="bell-outline" size={48} color={theme.colors.muted} />
+          <Text style={styles.emptyTitle}>Sign in to see your notifications</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -35,11 +52,22 @@ export function NotificationsScreen() {
             )}
           </View>
         )}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <MaterialCommunityIcons name="bell-outline" size={48} color={theme.colors.muted} />
+            <Text style={styles.emptyTitle}>No notifications yet</Text>
+            <Text style={styles.emptySubtitle}>
+              Likes, matches, and messages will show up here.
+            </Text>
+          </View>
+        }
       />
 
-      <Pressable style={styles.markAllButton} onPress={markAllRead}>
-        <Text style={styles.markAllText}>Mark all read</Text>
-      </Pressable>
+      {notifications.length > 0 ? (
+        <Pressable style={styles.markAllButton} onPress={markAllRead}>
+          <Text style={styles.markAllText}>Mark all read</Text>
+        </Pressable>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -132,5 +160,23 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
     fontWeight: '800',
     textAlign: 'center',
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingTop: 80,
+    paddingHorizontal: 32,
+  },
+  emptyTitle: {
+    marginTop: 14,
+    fontSize: 16,
+    fontWeight: '700',
+    color: theme.colors.text,
+  },
+  emptySubtitle: {
+    marginTop: 8,
+    fontSize: 13,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 19,
   },
 });

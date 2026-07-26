@@ -299,6 +299,16 @@ export async function getDiscoveryProfiles(
   // gender filter is requested so there's enough left after filtering client-side.
   const fetchLimit = wantsGenderFilter ? Math.min(requestedLimit * 4, 200) : requestedLimit;
 
+  // Profiles the user already made a decision on (like or reject) shouldn't
+  // keep reappearing in the deck. Blocked users are excluded automatically by
+  // RLS (migration 018), so they don't need to be handled here.
+  const { data: decidedRows } = await supabase
+    .from('likes')
+    .select('liked_user_id')
+    .eq('user_id', currentUserId)
+    .in('action', ['like', 'reject']);
+  const decidedUserIds = (decidedRows || []).map((row: any) => row.liked_user_id);
+
   let query = supabase
     .from('profiles')
     .select(
@@ -326,6 +336,10 @@ export async function getDiscoveryProfiles(
     .neq('user_id', currentUserId)
     .order('profile_strength_percentage', { ascending: false })
     .limit(fetchLimit);
+
+  if (decidedUserIds.length > 0) {
+    query = query.not('user_id', 'in', `(${decidedUserIds.join(',')})`);
+  }
 
   if (filters?.current_city) {
     query = query.eq('current_city', filters.current_city);
@@ -399,6 +413,19 @@ export async function likeProfile(likedUserId: string, action: 'like' | 'reject'
   return { data, error };
 }
 
+export async function removeLike(likedUserId: string) {
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) return { error: 'Not authenticated' };
+
+  const { error } = await supabase
+    .from('likes')
+    .delete()
+    .eq('user_id', userData.user.id)
+    .eq('liked_user_id', likedUserId);
+
+  return { error };
+}
+
 export async function getLikes(userId: string, action?: 'like' | 'reject' | 'shortlist') {
   let query = supabase.from('likes').select('*').eq('user_id', userId);
 
@@ -408,6 +435,69 @@ export async function getLikes(userId: string, action?: 'like' | 'reject' | 'sho
 
   const { data, error } = await query;
   return { data, error };
+}
+
+export async function getShortlistedProfiles(userId: string) {
+  const { data: likes, error: likesError } = await supabase
+    .from('likes')
+    .select('liked_user_id, created_at')
+    .eq('user_id', userId)
+    .eq('action', 'shortlist')
+    .order('created_at', { ascending: false });
+
+  if (likesError || !likes) {
+    return { data: null, error: likesError };
+  }
+
+  const userIds = likes.map((like) => like.liked_user_id);
+
+  if (userIds.length === 0) {
+    return { data: [], error: null };
+  }
+
+  const [{ data: profiles, error: profilesError }, { data: genders }] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select(
+        `
+        user_id, full_name, date_of_birth, current_city, nationality, education_level, profession,
+        profile_photos (photo_url, photo_type)
+      `
+      )
+      .in('user_id', userIds),
+    supabase.from('users_public').select('id, gender_preference').in('id', userIds),
+  ]);
+
+  if (profilesError) {
+    return { data: null, error: profilesError };
+  }
+
+  const profilesByUserId = new Map((profiles || []).map((profile: any) => [profile.user_id, profile]));
+  const genderByUserId = new Map((genders || []).map((row: any) => [row.id, row.gender_preference]));
+
+  const enriched = likes
+    .map((like) => {
+      const profile: any = profilesByUserId.get(like.liked_user_id);
+      if (!profile) {
+        return null;
+      }
+      const primaryPhoto = (profile.profile_photos || []).find((p: any) => p.photo_type === 'profile_picture');
+
+      return {
+        userId: like.liked_user_id,
+        fullName: profile.full_name,
+        dateOfBirth: profile.date_of_birth,
+        currentCity: profile.current_city,
+        nationality: profile.nationality,
+        educationLevel: profile.education_level,
+        profession: profile.profession,
+        gender: genderByUserId.get(like.liked_user_id) || 'male',
+        photoUrl: primaryPhoto?.photo_url || profile.profile_photos?.[0]?.photo_url || null,
+      };
+    })
+    .filter(Boolean);
+
+  return { data: enriched, error: null };
 }
 
 export async function getWhoLikedMe(userId: string) {
@@ -422,7 +512,17 @@ export async function getWhoLikedMe(userId: string) {
     return { data: null, error: likesError };
   }
 
-  const likerIds = Array.from(new Set(likes.map((like) => like.user_id)));
+  // Someone the current user has already liked back or passed on shouldn't
+  // keep showing up here - a like or reject means the decision is made.
+  const { data: decidedRows } = await supabase
+    .from('likes')
+    .select('liked_user_id')
+    .eq('user_id', userId)
+    .in('action', ['like', 'reject']);
+  const decidedUserIds = new Set((decidedRows || []).map((row: any) => row.liked_user_id));
+
+  const undecidedLikes = likes.filter((like) => !decidedUserIds.has(like.user_id));
+  const likerIds = Array.from(new Set(undecidedLikes.map((like) => like.user_id)));
 
   if (likerIds.length === 0) {
     return { data: [], error: null };
@@ -434,7 +534,9 @@ export async function getWhoLikedMe(userId: string) {
       `
       user_id,
       full_name,
+      date_of_birth,
       current_city,
+      nationality,
       about_me,
       profile_photos (photo_url)
     `
@@ -447,9 +549,75 @@ export async function getWhoLikedMe(userId: string) {
 
   const profilesByUserId = new Map((profiles || []).map((profile) => [profile.user_id, profile]));
 
-  const enriched = likes.map((like) => ({
+  const enriched = undecidedLikes.map((like) => ({
     ...like,
     profile: profilesByUserId.get(like.user_id) || null,
+  }));
+
+  return { data: enriched, error: null };
+}
+
+// ============================================================================
+// PROFILE VIEWS ("WHO VIEWED ME")
+// ============================================================================
+
+export async function trackProfileView(viewedUserId: string) {
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user || userData.user.id === viewedUserId) {
+    return { error: null };
+  }
+
+  const { error } = await supabase
+    .from('profile_views')
+    .upsert(
+      [{ viewer_id: userData.user.id, viewed_user_id: viewedUserId, viewed_at: new Date().toISOString() }],
+      { onConflict: 'viewer_id,viewed_user_id' }
+    );
+
+  return { error };
+}
+
+export async function getProfileViewers(userId: string) {
+  const { data: views, error: viewsError } = await supabase
+    .from('profile_views')
+    .select('id, viewer_id, viewed_at')
+    .eq('viewed_user_id', userId)
+    .order('viewed_at', { ascending: false });
+
+  if (viewsError || !views) {
+    return { data: null, error: viewsError };
+  }
+
+  const viewerIds = Array.from(new Set(views.map((view) => view.viewer_id)));
+
+  if (viewerIds.length === 0) {
+    return { data: [], error: null };
+  }
+
+  const { data: profiles, error: profilesError } = await supabase
+    .from('profiles')
+    .select(
+      `
+      user_id,
+      full_name,
+      date_of_birth,
+      current_city,
+      nationality,
+      about_me,
+      profile_photos (photo_url)
+    `
+    )
+    .in('user_id', viewerIds);
+
+  if (profilesError) {
+    return { data: null, error: profilesError };
+  }
+
+  const profilesByUserId = new Map((profiles || []).map((profile) => [profile.user_id, profile]));
+
+  const enriched = views.map((view) => ({
+    ...view,
+    profile: profilesByUserId.get(view.viewer_id) || null,
   }));
 
   return { data: enriched, error: null };
@@ -608,29 +776,78 @@ export async function getConversations(userId: string) {
     return { data: [], error: null };
   }
 
-  const { data: profiles, error: profilesError } = await supabase
-    .from('profiles')
-    .select('user_id, full_name')
-    .in('user_id', counterpartIds);
+  const [{ data: profiles, error: profilesError }, { data: genders }] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('user_id, full_name, profile_photos (photo_url, photo_type)')
+      .in('user_id', counterpartIds),
+    supabase.from('users_public').select('id, gender_preference').in('id', counterpartIds),
+  ]);
 
   if (profilesError) {
     return { data: null, error: profilesError };
   }
 
-  const profilesByUserId = new Map((profiles || []).map((profile) => [profile.user_id, profile]));
+  const profilesByUserId = new Map((profiles || []).map((profile: any) => [profile.user_id, profile]));
+  const genderByUserId = new Map((genders || []).map((row: any) => [row.id, row.gender_preference]));
 
   const enriched = conversations.map((conversation) => {
     const counterpartId =
       conversation.user_1_id === userId ? conversation.user_2_id : conversation.user_1_id;
+    const profile: any = profilesByUserId.get(counterpartId) || null;
+    const primaryPhoto = (profile?.profile_photos || []).find((p: any) => p.photo_type === 'profile_picture');
 
     return {
       ...conversation,
       counterpart_user_id: counterpartId,
-      profile: profilesByUserId.get(counterpartId) || null,
+      profile,
+      counterpart_gender: genderByUserId.get(counterpartId) || 'male',
+      counterpart_photo_url: primaryPhoto?.photo_url || profile?.profile_photos?.[0]?.photo_url || null,
     };
   });
 
   return { data: enriched, error: null };
+}
+
+export async function getConversationWithUser(currentUserId: string, counterpartUserId: string) {
+  const user1 = currentUserId < counterpartUserId ? currentUserId : counterpartUserId;
+  const user2 = currentUserId < counterpartUserId ? counterpartUserId : currentUserId;
+
+  const { data, error } = await supabase
+    .from('conversations')
+    .select('id, user_1_id, user_2_id')
+    .eq('user_1_id', user1)
+    .eq('user_2_id', user2)
+    .maybeSingle();
+
+  return { data, error };
+}
+
+// Premium members can message anyone, not just mutual matches - unlike
+// getConversationWithUser (read-only, used by the matches list), this
+// creates the conversation on first contact.
+export async function getOrCreateConversation(currentUserId: string, counterpartUserId: string) {
+  const existing = await getConversationWithUser(currentUserId, counterpartUserId);
+  if (existing.data || existing.error) {
+    return existing;
+  }
+
+  const user1 = currentUserId < counterpartUserId ? currentUserId : counterpartUserId;
+  const user2 = currentUserId < counterpartUserId ? counterpartUserId : currentUserId;
+
+  const { data, error } = await supabase
+    .from('conversations')
+    .insert({ user_1_id: user1, user_2_id: user2 })
+    .select('id, user_1_id, user_2_id')
+    .single();
+
+  if (error) {
+    // Someone else may have created the same pair between our read and
+    // write (unique_conversation_pair) - re-fetch instead of failing.
+    return getConversationWithUser(currentUserId, counterpartUserId);
+  }
+
+  return { data, error: null };
 }
 
 export async function getMessages(conversationId: string, limit = 50) {
@@ -672,6 +889,17 @@ export async function markMessageAsRead(messageId: string) {
     .single();
 
   return { data, error };
+}
+
+export async function markConversationAsRead(conversationId: string, currentUserId: string) {
+  const { error } = await supabase
+    .from('messages')
+    .update({ read_at: new Date().toISOString() })
+    .eq('conversation_id', conversationId)
+    .neq('sender_id', currentUserId)
+    .is('read_at', null);
+
+  return { error };
 }
 
 // ============================================================================
@@ -720,6 +948,17 @@ export async function markAllNotificationsAsRead(userId: string) {
   return { error };
 }
 
+export async function savePushToken(userId: string, expoPushToken: string, deviceType?: string) {
+  const { error } = await supabase
+    .from('push_tokens')
+    .upsert(
+      [{ user_id: userId, expo_push_token: expoPushToken, device_type: deviceType, updated_at: new Date().toISOString() }],
+      { onConflict: 'user_id,expo_push_token' }
+    );
+
+  return { error };
+}
+
 // ============================================================================
 // PAYMENTS & SUBSCRIPTIONS
 // ============================================================================
@@ -752,6 +991,16 @@ export async function getPaymentHistory(userId: string) {
   return { data, error };
 }
 
+// 'card' here is a manually-confirmed charge, not a real Stripe payment - no
+// card details are actually collected or transmitted. Wiring up real Stripe
+// billing needs, at minimum: a Stripe account + secret key held server-side
+// only (a Supabase Edge Function, never the client), a PaymentIntent/Checkout
+// Session created by that function, @stripe/stripe-react-native (Expo Go
+// can't host native Stripe UI - this needs an EAS development/production
+// build), and a webhook (Edge Function) that verifies the Stripe signature
+// and calls process_payment() with transactionId set to the real Stripe
+// charge/session ID. None of that exists yet; this function only records the
+// transaction and grants access after the fact.
 export async function processPayment(
   userId: string,
   amount: number,
@@ -779,6 +1028,118 @@ export async function getProfileVerificationStatus(userId: string) {
     .select('*')
     .eq('user_id', userId)
     .maybeSingle();
+
+  return { data, error };
+}
+
+// Deliberately not an upsert: Postgres requires table-level UPDATE privilege
+// for the ON CONFLICT DO UPDATE branch even when every SET column has its
+// own column-level grant, so this update-then-insert-fallback is the only
+// way to keep is_verified column-locked (see migration 019/024) while still
+// letting a user re-request verification more than once.
+export async function requestProfileVerification() {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+
+  if (userError || !userData.user) {
+    return { data: null, error: userError || new Error('Not authenticated') };
+  }
+
+  const requestedAt = new Date().toISOString();
+
+  const { data: updated, error: updateError } = await supabase
+    .from('profile_verification')
+    .update({ verification_requested_at: requestedAt })
+    .eq('user_id', userData.user.id)
+    .select()
+    .maybeSingle();
+
+  if (updateError) {
+    return { data: null, error: updateError };
+  }
+
+  if (updated) {
+    return { data: updated, error: null };
+  }
+
+  const { data: inserted, error: insertError } = await supabase
+    .from('profile_verification')
+    .insert({ user_id: userData.user.id, verification_requested_at: requestedAt })
+    .select()
+    .single();
+
+  return { data: inserted, error: insertError };
+}
+
+// ============================================================================
+// MODERATION (blocking & reporting)
+// ============================================================================
+
+export type ReportType = 'fake_profile' | 'inappropriate_content' | 'harassment' | 'scam' | 'catfish' | 'other';
+
+export async function submitReport(reportedUserId: string, reportType: ReportType, description: string) {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+
+  if (userError || !userData.user) {
+    return { data: null, error: userError || new Error('Not authenticated') };
+  }
+
+  const { data, error } = await supabase
+    .from('reports')
+    .insert([
+      {
+        reported_by: userData.user.id,
+        reported_user_id: reportedUserId,
+        report_type: reportType,
+        description,
+      },
+    ])
+    .select()
+    .single();
+
+  return { data, error };
+}
+
+export async function blockUser(blockedUserId: string) {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+
+  if (userError || !userData.user) {
+    return { data: null, error: userError || new Error('Not authenticated') };
+  }
+
+  const { data, error } = await supabase
+    .from('blocked_users')
+    .upsert(
+      { blocker_id: userData.user.id, blocked_id: blockedUserId },
+      { onConflict: 'blocker_id,blocked_id' }
+    )
+    .select()
+    .single();
+
+  return { data, error };
+}
+
+export async function unblockUser(blockedUserId: string) {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+
+  if (userError || !userData.user) {
+    return { error: userError || new Error('Not authenticated') };
+  }
+
+  const { error } = await supabase
+    .from('blocked_users')
+    .delete()
+    .eq('blocker_id', userData.user.id)
+    .eq('blocked_id', blockedUserId);
+
+  return { error };
+}
+
+export async function getBlockedUsers(userId: string) {
+  const { data, error } = await supabase
+    .from('blocked_users')
+    .select('id, blocked_id, created_at')
+    .eq('blocker_id', userId)
+    .order('created_at', { ascending: false });
 
   return { data, error };
 }

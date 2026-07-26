@@ -13,11 +13,15 @@ import ProfileFormScreen from '../screens/profile/ProfileFormScreen';
 import PremiumScreen from '../screens/PremiumScreen';
 import PaymentSuccessScreen from '../screens/PaymentSuccessScreen';
 import { ProfileDetailScreen } from '../screens/ProfileDetailScreen';
+import ChatScreen from '../screens/ChatScreen';
+import { LikesYouScreen } from '../screens/LikesYouScreen';
+import { WhoViewedMeScreen } from '../screens/WhoViewedMeScreen';
 import TabNavigator from './TabNavigator';
 import { NotificationsProvider } from '../context/NotificationsContext';
 import { UserProvider, useUser } from '../context/UserContext';
 import { FormProvider, useForm } from '../context/FormContext';
 import { getProfile, getProfilePhotos, mapProfileRowToFormSnapshot } from '../lib/database';
+import { registerForPushNotificationsAsync } from '../lib/pushNotifications';
 
 export type RootStackParamList = {
   Splash: undefined;
@@ -32,6 +36,9 @@ export type RootStackParamList = {
   Tabs: undefined;
   Premium: undefined;
   PaymentSuccess: undefined;
+  Chat: { conversationId: string; counterpartName: string; counterpartUserId?: string };
+  LikesYou: undefined;
+  WhoViewedMe: undefined;
   ProfileDetail: { profile: {
     id: string;
     userId?: string;
@@ -113,6 +120,14 @@ function ProfileHydrationBridge({ children }: { children: React.ReactNode }) {
     };
   }, [userId, loading, updateFormData]);
 
+  useEffect(() => {
+    if (loading || !userId) {
+      return;
+    }
+
+    registerForPushNotificationsAsync(userId);
+  }, [userId, loading]);
+
   return <>{children}</>;
 }
 
@@ -137,6 +152,9 @@ export default function AppNavigator() {
                 <Stack.Screen name="Tabs" component={TabNavigator} />
                 <Stack.Screen name="ProfileDetail" component={ProfileDetailScreen} />
                 <Stack.Screen name="Premium" component={PremiumScreen} />
+                <Stack.Screen name="Chat" component={ChatScreen} />
+                <Stack.Screen name="LikesYou" component={LikesYouScreen} />
+                <Stack.Screen name="WhoViewedMe" component={WhoViewedMeScreen} />
               </Stack.Navigator>
             </NavigationContainer>
           </NotificationsProvider>

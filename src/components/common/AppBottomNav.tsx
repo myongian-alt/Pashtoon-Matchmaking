@@ -4,7 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { theme } from '../../theme';
 
-type MainTabName = 'Discover' | 'Home' | 'Favorites' | 'Notifications' | 'Account';
+type MainTabName = 'Discover' | 'Home' | 'Favorites' | 'Messages' | 'Notifications' | 'Account';
 
 type AppBottomNavProps = {
   activeTab?: MainTabName;
@@ -14,6 +14,7 @@ const TABS: Array<{ key: MainTabName; label: string; icon: keyof typeof Material
   { key: 'Discover', label: 'Discover', icon: 'cards-heart' },
   { key: 'Home', label: 'Home', icon: 'home' },
   { key: 'Favorites', label: 'Favourite', icon: 'heart' },
+  { key: 'Messages', label: 'Messages', icon: 'chat-outline' },
   { key: 'Notifications', label: 'Alerts', icon: 'bell' },
   { key: 'Account', label: 'Account', icon: 'account-circle' },
 ];

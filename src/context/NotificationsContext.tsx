@@ -1,5 +1,12 @@
-import React, { createContext, useContext, useMemo, useState } from 'react';
-import { initialNotifications, Notification } from '../data/notifications';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { Notification } from '../data/notifications';
+import { useUser } from './UserContext';
+import {
+  getNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  subscribeToNotifications,
+} from '../lib/database';
 
 interface NotificationsContextValue {
   notifications: Notification[];
@@ -10,8 +17,43 @@ interface NotificationsContextValue {
 
 const NotificationsContext = createContext<NotificationsContextValue | undefined>(undefined);
 
+function toNotification(row: any): Notification {
+  return {
+    id: row.id,
+    title: row.title,
+    subtitle: row.subtitle || '',
+    unread: !row.read_at,
+  };
+}
+
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
-  const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
+  const { userId, isGuest } = useUser();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+
+  useEffect(() => {
+    if (!userId || isGuest) {
+      setNotifications([]);
+      return;
+    }
+
+    let isMounted = true;
+
+    getNotifications(userId).then((result) => {
+      if (isMounted && !result.error) {
+        setNotifications((result.data || []).map(toNotification));
+      }
+    });
+
+    const channel = subscribeToNotifications(userId, (payload) => {
+      if (!isMounted || !payload.new) return;
+      setNotifications((current) => [toNotification(payload.new), ...current]);
+    });
+
+    return () => {
+      isMounted = false;
+      channel.unsubscribe();
+    };
+  }, [userId, isGuest]);
 
   const unreadCount = useMemo(
     () => notifications.filter((item) => item.unread).length,
@@ -22,10 +64,14 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     setNotifications((current) =>
       current.map((item) => (item.id === id ? { ...item, unread: false } : item))
     );
+    markNotificationAsRead(id);
   };
 
   const markAllRead = () => {
     setNotifications((current) => current.map((item) => ({ ...item, unread: false })));
+    if (userId) {
+      markAllNotificationsAsRead(userId);
+    }
   };
 
   return (
