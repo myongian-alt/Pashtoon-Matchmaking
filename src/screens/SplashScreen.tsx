@@ -1,13 +1,16 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { theme } from '../theme';
 import { navigationRef } from '../navigation/navigationRef';
+import { useUser } from '../context/UserContext';
 
 export default function SplashScreen() {
   const navigation = useNavigation();
+  const { isAuthenticated, loading } = useUser();
   const opacity = React.useRef(new Animated.Value(0)).current;
   const translateY = React.useRef(new Animated.Value(32)).current;
+  const [minDelayElapsed, setMinDelayElapsed] = useState(false);
 
   useEffect(() => {
     Animated.parallel([
@@ -22,16 +25,25 @@ export default function SplashScreen() {
         useNativeDriver: true,
       }),
     ]).start(() => {
-      setTimeout(() => {
-        // Something else (e.g. a PASSWORD_RECOVERY deep link) may have
-        // already navigated away from Splash during the animation/delay -
-        // don't stomp over that with the default destination.
-        if (!navigationRef.isReady() || navigationRef.getCurrentRoute()?.name === 'Splash') {
-          navigation.navigate('Onboarding' as never);
-        }
-      }, 1400);
+      setTimeout(() => setMinDelayElapsed(true), 1400);
     });
-  }, [navigation, opacity, translateY]);
+  }, [opacity, translateY]);
+
+  useEffect(() => {
+    // Wait for both the minimum splash duration AND UserContext's own
+    // session check (loading) - whichever resolves last decides when we
+    // navigate, so a slow session lookup never gets raced.
+    if (!minDelayElapsed || loading) {
+      return;
+    }
+
+    // Something else (e.g. a PASSWORD_RECOVERY deep link) may have already
+    // navigated away from Splash during the animation/delay - don't stomp
+    // over that with the default destination.
+    if (!navigationRef.isReady() || navigationRef.getCurrentRoute()?.name === 'Splash') {
+      navigation.navigate((isAuthenticated ? 'Tabs' : 'Onboarding') as never);
+    }
+  }, [minDelayElapsed, loading, isAuthenticated, navigation]);
 
   return (
     <View style={styles.container}>

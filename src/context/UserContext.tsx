@@ -1,8 +1,8 @@
-import React, { createContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useState, ReactNode, useEffect, useRef } from 'react';
 import { onAuthStateChange } from '../lib/auth';
 import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getProfileCompletionStatus, setProfileCompletionStatus } from '../lib/database';
+import { getProfileCompletionStatus, setProfileCompletionStatus, ensureUserRowExists } from '../lib/database';
 import { navigateTo } from '../navigation/navigationRef';
 
 interface UserContextType {
@@ -40,6 +40,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [supabaseUser, setSupabaseUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  // The onAuthStateChange listener below is subscribed once (empty deps) so
+  // its closure would otherwise always see selectedGender from mount time
+  // (null) - a ref sidesteps that stale-closure trap.
+  const selectedGenderRef = useRef(selectedGender);
+  useEffect(() => {
+    selectedGenderRef.current = selectedGender;
+  }, [selectedGender]);
 
   const updateProfileCompleted = async (value: boolean, targetUserId?: string | null) => {
     setProfileCompleted(value);
@@ -96,6 +103,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
           setUserEmail(data.session.user.email || null);
           setUserPhone(data.session.user.phone || null);
           await hydrateProfileCompleted(data.session.user.id);
+
+          // A returning session skips ChooseGenderScreen entirely (see
+          // SplashScreen), which is the only other place selectedGender ever
+          // gets set - without this, every gender-filtered query in
+          // ProfileDiscoveryScreen silently falls back to "no filter" for
+          // the rest of the session.
+          const { data: userRow } = await supabase
+            .from('users')
+            .select('gender_preference')
+            .eq('id', data.session.user.id)
+            .maybeSingle();
+          if (userRow?.gender_preference === 'male' || userRow?.gender_preference === 'female') {
+            setSelectedGender(userRow.gender_preference);
+          }
         } else {
           setIsAuthenticated(false);
           setIsGuest(true);
@@ -124,6 +145,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
           setSupabaseUser(session.user);
           setUserEmail(session.user.email || null);
           setUserPhone(session.user.phone || null);
+
+          if (event === 'SIGNED_IN') {
+            // Only creates the row if missing - never overwrites a
+            // returning user's real gender_preference (see
+            // ensureUserRowExists' own comment for why this can't reuse
+            // ensureCurrentUserRecord's overwrite-upsert here).
+            ensureUserRowExists(selectedGenderRef.current || 'male').catch((error) => {
+              console.warn('ensureUserRowExists on sign-in failed:', (error as Error)?.message);
+            });
+          }
           hydrateProfileCompleted(session.user.id);
         }
       } else if (event === 'SIGNED_OUT') {

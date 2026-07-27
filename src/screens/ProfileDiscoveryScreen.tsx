@@ -320,7 +320,10 @@ export default function ProfileDiscoveryScreen() {
       }
 
       if (!userId) {
-        setMatchedProfiles(fallbackMatchProfiles);
+        const genderFiltered = targetGender
+          ? fallbackMatchProfiles.filter((item) => item.gender === targetGender)
+          : fallbackMatchProfiles;
+        setMatchedProfiles(genderFiltered);
         setLoadingMatches(false);
         return;
       }
@@ -333,7 +336,10 @@ export default function ProfileDiscoveryScreen() {
       }
 
       if (result.error || !result.data) {
-        setMatchedProfiles(fallbackMatchProfiles);
+        const genderFiltered = targetGender
+          ? fallbackMatchProfiles.filter((item) => item.gender === targetGender)
+          : fallbackMatchProfiles;
+        setMatchedProfiles(genderFiltered);
         setLoadingMatches(false);
         return;
       }
@@ -348,7 +354,8 @@ export default function ProfileDiscoveryScreen() {
             match_score: row.match_score,
           };
           return toListItemFromProfile(profileRow, 'matches');
-        });
+        })
+        .filter((item) => !targetGender || item.gender === targetGender);
 
       const combined = mergeWithSamples(mapped, fallbackMatchProfiles, 4, targetGender);
       setMatchedProfiles(combined);
@@ -581,42 +588,42 @@ export default function ProfileDiscoveryScreen() {
   const renderMatchCard = ({ item }: { item: ProfileListItem }) => {
     return (
       <Pressable style={styles.profileCard} onPress={() => handleViewProfile(item)}>
-        <View style={styles.imageContainer}>
-          {item.image ? (
-            <Image source={item.image} style={styles.profileImage} />
-          ) : (
-            <View style={styles.emptyImage}>
-              <ModernMuslimAvatar gender={item.gender} size={170} />
-            </View>
-          )}
-        </View>
-
-        <View style={styles.genderBadge}>
-          <MaterialCommunityIcons
-            name={item.gender === 'male' ? 'human-male' : 'human-female'}
-            size={28}
-            color="#fff"
-          />
-        </View>
-
-        <View style={styles.matchBadge}>
-          <MaterialCommunityIcons name="star" size={14} color="#fff" />
-          <Text style={styles.matchBadgeText}>Matched</Text>
-        </View>
-
         <View style={styles.cardContent}>
-          <Text style={styles.profileName}>{item.name}</Text>
+          <View style={styles.matchHeaderRow}>
+            <View style={styles.matchImageFrame}>
+              {item.image ? (
+                <Image source={item.image} style={styles.matchImage} resizeMode="cover" />
+              ) : (
+                <View style={[styles.matchImage, styles.emptyImage]}>
+                  <ModernMuslimAvatar gender={item.gender} size={56} />
+                </View>
+              )}
+              <View style={styles.matchGenderBadge}>
+                <MaterialCommunityIcons
+                  name={item.gender === 'male' ? 'human-male' : 'human-female'}
+                  size={14}
+                  color="#fff"
+                />
+              </View>
+            </View>
 
-          <View style={styles.ageLocationRow}>
-            <MaterialCommunityIcons name="cake-variant" size={16} color="#C9A876" />
-            <Text style={styles.infoText}>{item.age ? `${item.age} years` : 'Age not set'}</Text>
-            <MaterialCommunityIcons name="map-marker" size={16} color="#C9A876" style={{ marginLeft: 12 }} />
-            <Text style={styles.infoText}>{item.location}</Text>
-          </View>
-
-          <View style={styles.maritalStatusRow}>
-            <MaterialCommunityIcons name="ring" size={14} color="#D4AF37" />
-            <Text style={styles.maritalStatusText}>{item.maritalStatus}</Text>
+            <View style={styles.matchHeaderInfo}>
+              <View style={styles.matchBadge}>
+                <MaterialCommunityIcons name="star" size={12} color="#fff" />
+                <Text style={styles.matchBadgeText}>Matched</Text>
+              </View>
+              <Text style={styles.profileName} numberOfLines={1}>{item.name}</Text>
+              <View style={styles.ageLocationRow}>
+                <MaterialCommunityIcons name="cake-variant" size={14} color="#C9A876" />
+                <Text style={styles.infoText}>{item.age ? `${item.age} years` : 'Age not set'}</Text>
+                <MaterialCommunityIcons name="map-marker" size={14} color="#C9A876" style={{ marginLeft: 10 }} />
+                <Text style={styles.infoText} numberOfLines={1}>{item.location}</Text>
+              </View>
+              <View style={styles.maritalStatusRow}>
+                <MaterialCommunityIcons name="ring" size={13} color="#D4AF37" />
+                <Text style={styles.maritalStatusText}>{item.maritalStatus}</Text>
+              </View>
+            </View>
           </View>
 
           {item.aboutMe ? (
@@ -1025,7 +1032,11 @@ const styles = StyleSheet.create({
   gridRow: { justifyContent: 'flex-start', gap: 10 },
   gridCard: {
     flex: 1,
-    marginBottom: 12,
+    // Capped so a 2-column tile never balloons past a sensible size on a
+    // wide/tablet-width viewport - flex:1 still shrinks it correctly on
+    // narrow phone widths, this only clamps the upper bound.
+    maxWidth: 210,
+    marginBottom: 10,
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: '#FFFFFF',
@@ -1082,12 +1093,12 @@ const styles = StyleSheet.create({
   },
   gridCardContent: {
     paddingHorizontal: 10,
-    paddingVertical: 10,
-    gap: 4,
+    paddingVertical: 9,
+    gap: 3,
   },
   gridName: {
     color: '#1F2924',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
     fontFamily: 'Georgia',
   },
@@ -1098,79 +1109,96 @@ const styles = StyleSheet.create({
   },
   gridInfoText: {
     color: '#5A6360',
-    fontSize: 12,
+    fontSize: 11.5,
     fontFamily: 'Georgia',
     flexShrink: 1,
   },
   gridMaritalText: {
     color: '#D4AF37',
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '700',
     fontFamily: 'Georgia',
   },
   gridBiodataText: {
     color: '#1F2924',
-    fontSize: 12,
+    fontSize: 11.5,
     fontFamily: 'Georgia',
     fontWeight: '600',
-    marginTop: 2,
+    marginTop: 1,
   },
   profileCard: {
-    borderRadius: 24,
+    borderRadius: 22,
     overflow: 'hidden',
-    marginBottom: 20,
+    marginBottom: 14,
     backgroundColor: '#FFFFFF',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 6,
   },
-  imageContainer: { width: '100%', aspectRatio: 1, backgroundColor: '#F0E8E0' },
-  profileImage: { width: '100%', height: '100%', resizeMode: 'cover' },
   emptyImage: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF5E5' },
-  genderBadge: {
+  matchHeaderRow: {
+    flexDirection: 'row',
+    marginBottom: 14,
+  },
+  matchImageFrame: {
+    position: 'relative',
+    width: 92,
+    height: 92,
+    marginRight: 14,
+  },
+  matchImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 18,
+    backgroundColor: '#F0E8E0',
+  },
+  matchGenderBadge: {
     position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(19, 78, 54, 0.85)',
+    bottom: -4,
+    right: -4,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(19, 78, 54, 0.9)',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 10,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  matchHeaderInfo: {
+    flex: 1,
+    justifyContent: 'center',
   },
   matchBadge: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
+    alignSelf: 'flex-start',
     backgroundColor: '#D4AF37',
     borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    zIndex: 10,
+    marginBottom: 5,
   },
   matchBadgeText: {
     color: '#fff',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
   },
-  cardContent: { padding: 18 },
+  cardContent: { padding: 16 },
   profileName: {
-    fontSize: 22,
+    fontSize: 19,
     fontWeight: '800',
     color: '#1F2924',
     fontFamily: 'Georgia',
-    marginBottom: 6,
+    marginBottom: 4,
   },
-  ageLocationRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
-  infoText: { fontSize: 14, color: '#5A6360', fontFamily: 'Georgia', flexShrink: 1 },
-  maritalStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
-  maritalStatusText: { fontSize: 13, color: '#D4AF37', fontWeight: '700', fontFamily: 'Georgia' },
+  ageLocationRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 5 },
+  infoText: { fontSize: 13, color: '#5A6360', fontFamily: 'Georgia', flexShrink: 1 },
+  maritalStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  maritalStatusText: { fontSize: 12, color: '#D4AF37', fontWeight: '700', fontFamily: 'Georgia' },
   aboutMeText: {
     fontSize: 13,
     color: '#5A6360',
@@ -1185,7 +1213,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 12,
     paddingHorizontal: 14,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   biodataItem: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
   biodataDivider: { width: 1, height: 32, backgroundColor: '#E0D2BE', marginHorizontal: 10 },

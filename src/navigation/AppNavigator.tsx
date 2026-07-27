@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import SplashScreen from '../screens/SplashScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
+import DeclarationScreen from '../screens/DeclarationScreen';
 import AuthSelectionScreen from '../screens/auth/AuthSelectionScreen';
 import PhoneAuthScreen from '../screens/auth/PhoneAuthScreen';
 import EmailAuthScreen from '../screens/auth/EmailAuthScreen';
@@ -29,6 +30,7 @@ import { navigationRef, flushPendingNavigation } from './navigationRef';
 export type RootStackParamList = {
   Splash: undefined;
   Onboarding: undefined;
+  Declaration: undefined;
   ChooseGender: undefined;
   AuthSelection: undefined;
   EmailAuth: undefined;
@@ -149,6 +151,7 @@ export default function AppNavigator() {
               <Stack.Navigator screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="Splash" component={SplashScreen} />
                 <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+                <Stack.Screen name="Declaration" component={DeclarationScreen} />
                 <Stack.Screen name="ChooseGender" component={ChooseGenderScreen} />
                 <Stack.Screen name="AuthSelection" component={AuthSelectionScreen} />
                 <Stack.Screen name="EmailAuth" component={EmailAuthScreen} />

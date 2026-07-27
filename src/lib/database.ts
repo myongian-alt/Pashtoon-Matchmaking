@@ -65,13 +65,19 @@ export async function ensureCurrentUserRecord(gender: 'male' | 'female' = 'male'
 
   const user = authData.user;
 
+  // Supabase Auth returns '' (not null/undefined) for the phone/email a user
+  // didn't sign up with - e.g. an email/password user has user.phone === ''.
+  // Both columns are UNIQUE, so upserting that '' as-is collides with every
+  // other email-only (or phone-only) user's row after the first one claims
+  // it, and the whole upsert - and therefore the profile save that depends
+  // on it - fails with a duplicate-key error for everyone after that.
   const { data, error } = await supabase
     .from('users')
     .upsert(
       {
         id: user.id,
-        email: user.email ?? null,
-        phone: user.phone ?? null,
+        email: user.email || null,
+        phone: user.phone || null,
         gender_preference: gender,
         is_active: true,
       },
@@ -122,6 +128,56 @@ export async function upsertCurrentUserProfile(
     .upsert(payload, { onConflict: 'user_id' })
     .select()
     .single();
+
+  return { data, error };
+}
+
+// Guarantees a public.users row exists, without ever touching one that
+// already does - unlike ensureCurrentUserRecord's upsert (which
+// intentionally overwrites gender_preference with whatever this session's
+// onboarding gender-picker holds, matching upsertCurrentUserProfile's
+// existing behavior), this must not run on every sign-in and flip a
+// returning user's real gender back to a stale/default value. Supabase
+// fires SIGNED_IN both for a fresh login and for a persisted session
+// restored at app boot, and selectedGender is null at boot time (the user
+// hasn't clicked through ChooseGender again yet this launch) - so a
+// blanket upsert there would overwrite real data with 'male' on every
+// reopen. This only creates the row if missing; several tables
+// (conversations, likes, connections, ...) have a hard FK to
+// public.users(id) and would 409 for a user who authenticated but never
+// saved a profile yet.
+export async function ensureUserRowExists(gender: 'male' | 'female' = 'male') {
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !authData.user) {
+    return { data: null, error: authError || new Error('Not authenticated') };
+  }
+
+  const user = authData.user;
+
+  const { data: existing } = await supabase.from('users').select('id').eq('id', user.id).maybeSingle();
+  if (existing) {
+    return { data: existing, error: null };
+  }
+
+  const { data, error } = await supabase
+    .from('users')
+    .insert({
+      id: user.id,
+      email: user.email || null,
+      phone: user.phone || null,
+      gender_preference: gender,
+      is_active: true,
+    })
+    .select()
+    .single();
+
+  // A race with another concurrent call already having inserted this exact
+  // row (23505) means the row exists now, which is all this function
+  // promises - not a real failure.
+  if (error && (error as any).code === '23505') {
+    return { data: existing, error: null };
+  }
 
   return { data, error };
 }
@@ -979,6 +1035,21 @@ export async function isUserPremium(userId: string) {
     .rpc('is_user_premium', { user_id_param: userId });
 
   return { isPremium: data || false, error };
+}
+
+// Records a contact-details request and emails the admin about it (Edge
+// Function does the actual writing/emailing with the service role - see
+// supabase/functions/request-contact-details).
+export async function requestContactDetails(targetUserId: string) {
+  const { data, error } = await supabase.functions.invoke('request-contact-details', {
+    body: { targetUserId },
+  });
+
+  if (error) {
+    return { success: false, error };
+  }
+
+  return { success: true, emailSent: Boolean(data?.emailSent) };
 }
 
 export async function getPaymentHistory(userId: string) {

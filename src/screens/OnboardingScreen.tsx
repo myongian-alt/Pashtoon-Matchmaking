@@ -6,16 +6,26 @@ import { theme } from '../theme';
 
 const { width } = Dimensions.get('window');
 const featureItems = [
-  { icon: 'account-group', title: 'Trusted community' },
-  { icon: 'account-check', title: 'Verified profiles' },
-  { icon: 'ring', title: 'Serious marriage only' },
-  { icon: 'lock', title: 'Privacy' },
-];
+  { icon: 'account-group', title: 'Trusted community', tint: 'emerald' },
+  { icon: 'account-check', title: 'Verified profiles', tint: 'gold' },
+  { icon: 'ring', title: 'Serious marriage only', tint: 'emerald' },
+  { icon: 'lock', title: 'Privacy', tint: 'gold' },
+] as const;
 const weddingImage = require('../../assets/pashtoon-hero.jpg');
 
 export default function OnboardingScreen() {
   const navigation = useNavigation();
   const pulse = useMemo(() => new Animated.Value(0), []);
+  const featureAnims = useMemo(() => featureItems.map(() => new Animated.Value(0)), []);
+
+  useEffect(() => {
+    Animated.stagger(
+      100,
+      featureAnims.map((anim) =>
+        Animated.timing(anim, { toValue: 1, duration: 420, useNativeDriver: false })
+      )
+    ).start();
+  }, [featureAnims]);
 
   useEffect(() => {
     Animated.loop(
@@ -74,28 +84,49 @@ export default function OnboardingScreen() {
             </Text>
           </View>
         </View>
-      </ScrollView>
 
-      <View style={styles.bottomSection}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.featureScroll}>
-          {featureItems.map((item) => (
-            <View key={item.title} style={styles.featureChip}>
-              <View style={styles.featureIcon}>
-                <MaterialCommunityIcons name={item.icon as any} size={14} color="#ffffff" />
+        <View style={styles.featureGrid}>
+          {featureItems.map((item, index) => (
+            <Animated.View
+              key={item.title}
+              style={[
+                styles.featureCard,
+                item.tint === 'gold' ? styles.featureCardGold : styles.featureCardEmerald,
+                {
+                  opacity: featureAnims[index],
+                  transform: [
+                    {
+                      translateY: featureAnims[index].interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [16, 0],
+                      }),
+                    },
+                    { scale: ringScale },
+                  ],
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.featureIconBadge,
+                  item.tint === 'gold' ? styles.featureIconBadgeGold : styles.featureIconBadgeEmerald,
+                ]}
+              >
+                <MaterialCommunityIcons name={item.icon as any} size={18} color="#fff" />
               </View>
               <Text style={styles.featureText}>{item.title}</Text>
-            </View>
+            </Animated.View>
           ))}
-        </ScrollView>
-
-        <View style={styles.footer}>
-          <Text style={styles.bottomText}>
-            Tap Next to continue to the gender selection and auth flow.
-          </Text>
-          <Pressable style={styles.button} onPress={() => navigation.navigate('ChooseGender' as never)}>
-            <Text style={styles.buttonText}>Next</Text>
-          </Pressable>
         </View>
+      </ScrollView>
+
+      <View style={styles.footer}>
+        <Text style={styles.bottomText}>
+          Tap Next to review our community agreement and continue.
+        </Text>
+        <Pressable style={styles.button} onPress={() => navigation.navigate('Declaration' as never)}>
+          <Text style={styles.buttonText}>Next</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -158,10 +189,10 @@ const styles = StyleSheet.create({
   },
   heroImage: {
     width: '100%',
-    maxWidth: 520,
-    height: width * 0.52,
-    borderRadius: 28,
-    marginBottom: 12,
+    maxWidth: 420,
+    height: width * 0.38,
+    borderRadius: 24,
+    marginBottom: 10,
     borderWidth: 2,
     borderColor: theme.colors.accent,
     shadowColor: theme.colors.shadow,
@@ -215,54 +246,64 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     alignItems: 'center',
   },
-  bottomSection: {
+  featureGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 6,
+    marginTop: 8,
+  },
+  featureCard: {
+    width: '46%',
+    minWidth: 132,
+    alignItems: 'center',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    shadowColor: theme.colors.shadow,
+    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  featureCardEmerald: {
+    backgroundColor: theme.colors.primarySoft,
+    borderColor: 'rgba(19, 78, 54, 0.18)',
+  },
+  featureCardGold: {
+    backgroundColor: theme.colors.accentSoft,
+    borderColor: 'rgba(140, 102, 54, 0.22)',
+  },
+  featureIconBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  featureIconBadgeEmerald: {
+    backgroundColor: theme.colors.primary,
+  },
+  featureIconBadgeGold: {
+    backgroundColor: theme.colors.accentDeep,
+  },
+  featureText: {
+    color: theme.colors.text,
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 16,
+    textAlign: 'center',
+  },
+  footer: {
     paddingTop: 12,
     paddingHorizontal: 24,
-    paddingBottom: 24,
+    paddingBottom: 20,
     borderTopWidth: 1,
     borderTopColor: '#E3D7C4',
     backgroundColor: '#F7E1C9',
-  },
-  featureScroll: {
-    flexDirection: 'row',
-    paddingVertical: 8,
-  },
-  featureChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.primary,
-    borderRadius: 16,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    marginRight: 10,
-    borderWidth: 1,
-    borderColor: '#0e3a28',
-    shadowColor: theme.colors.shadow,
-    shadowOpacity: 0.14,
-    shadowOffset: { width: 0, height: 5 },
-    shadowRadius: 10,
-    elevation: 3,
-    minHeight: 44,
-  },
-  featureIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 10,
-    backgroundColor: '#245f44',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  featureText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '700',
-    lineHeight: 13,
-    maxWidth: 120,
-  },
-  footer: {
-    paddingVertical: 16,
-    paddingBottom: 8,
   },
   bottomText: {
     color: theme.colors.textSecondary,

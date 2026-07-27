@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Alert, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View, Image } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../theme';
 import { useUser } from '../context/UserContext';
@@ -12,8 +12,8 @@ import {
   submitReport,
   ReportType,
   trackProfileView,
-  isUserPremium,
   getOrCreateConversation,
+  requestContactDetails,
 } from '../lib/database';
 
 const REPORT_TYPES: { key: ReportType; label: string }[] = [
@@ -35,10 +35,13 @@ export function ProfileDetailScreen({ route, navigation }: any) {
   const [reportType, setReportType] = useState<ReportType>('fake_profile');
   const [reportDescription, setReportDescription] = useState('');
   const [submittingReport, setSubmittingReport] = useState(false);
-  const [isPremium, setIsPremium] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
   const [blocking, setBlocking] = useState(false);
+  const [requestingContact, setRequestingContact] = useState(false);
+  const [contactRequestSent, setContactRequestSent] = useState(false);
+  const [banner, setBanner] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const bannerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSelfProfile = Boolean(profile?.isSelfProfile);
   const galleryPhotos = Array.isArray(profile?.galleryPhotos)
     ? profile.galleryPhotos.filter((uri: unknown) => typeof uri === 'string' && uri.length > 0)
@@ -63,22 +66,23 @@ export function ProfileDetailScreen({ route, navigation }: any) {
   }, [isGuest, isSelfProfile, profile?.userId]);
 
   useEffect(() => {
-    if (isGuest || !userId) {
-      setIsPremium(false);
-      return;
-    }
-
-    let isMounted = true;
-    isUserPremium(userId).then((result) => {
-      if (isMounted) {
-        setIsPremium(result.isPremium);
-      }
-    });
-
     return () => {
-      isMounted = false;
+      if (bannerTimeoutRef.current) {
+        clearTimeout(bannerTimeoutRef.current);
+      }
     };
-  }, [isGuest, userId]);
+  }, []);
+
+  // Alert.alert doesn't render anything on the web build (confirmed - no
+  // dialog, no callback) so any feedback that relies on it is silently
+  // swallowed there; this banner is the one visible-on-every-platform path.
+  const showBanner = (type: 'success' | 'error', message: string) => {
+    if (bannerTimeoutRef.current) {
+      clearTimeout(bannerTimeoutRef.current);
+    }
+    setBanner({ type, message });
+    bannerTimeoutRef.current = setTimeout(() => setBanner(null), 3500);
+  };
 
   const handleLoginWithEmail = () => {
     setShowLoginPrompt(false);
@@ -106,7 +110,7 @@ export function ProfileDetailScreen({ route, navigation }: any) {
     }
 
     if (!profile?.userId) {
-      Alert.alert('Not available', 'This demo profile is not connected to a real account yet.');
+      showBanner('error', 'This demo profile is not connected to a real account yet.');
       return;
     }
 
@@ -118,15 +122,15 @@ export function ProfileDetailScreen({ route, navigation }: any) {
       const message =
         typeof result.error === 'string' ? result.error : (result.error as any)?.message || '';
       if (message.includes('23505') || message.toLowerCase().includes('duplicate')) {
-        Alert.alert('Already sent', 'You already sent an interest request to this profile.');
+        showBanner('error', 'You already sent an interest request to this profile.');
       } else {
-        Alert.alert('Could not send interest', 'Please try again.');
+        showBanner('error', 'Could not send interest. Please try again.');
       }
       return;
     }
 
     setInterestSent(true);
-    Alert.alert('Interest sent', 'Your interest has been sent successfully.');
+    showBanner('success', 'Your interest has been sent successfully.');
   };
 
   const handleSendMessage = async () => {
@@ -136,16 +140,7 @@ export function ProfileDetailScreen({ route, navigation }: any) {
     }
 
     if (!profile?.userId) {
-      Alert.alert('Not available', 'This demo profile is not connected to a real account yet.');
-      return;
-    }
-
-    if (!isPremium) {
-      // Multi-button Alert.alert doesn't fire on the web build (react-native-web
-      // limitation - confirmed no dialog and no callback ever runs there), so
-      // this has to navigate directly rather than depend on an "Upgrade" button
-      // inside a confirm dialog.
-      navigation.navigate('Premium' as never);
+      showBanner('error', 'This demo profile is not connected to a real account yet.');
       return;
     }
 
@@ -158,7 +153,7 @@ export function ProfileDetailScreen({ route, navigation }: any) {
     setSendingMessage(false);
 
     if (result.error || !result.data) {
-      Alert.alert('Could not start conversation', 'Please try again.');
+      showBanner('error', 'Could not start conversation. Please try again.');
       return;
     }
 
@@ -169,12 +164,36 @@ export function ProfileDetailScreen({ route, navigation }: any) {
     });
   };
 
+  const handleRequestContactDetails = async () => {
+    if (isGuest) {
+      setShowLoginPrompt(true);
+      return;
+    }
+
+    if (!profile?.userId) {
+      showBanner('error', 'This demo profile is not connected to a real account yet.');
+      return;
+    }
+
+    setRequestingContact(true);
+    const result = await requestContactDetails(profile.userId);
+    setRequestingContact(false);
+
+    if (!result.success) {
+      showBanner('error', 'Could not send request. Please try again.');
+      return;
+    }
+
+    setContactRequestSent(true);
+    showBanner('success', 'Request sent - our admin team will reach out to you soon.');
+  };
+
   // A confirm-style Alert.alert (Cancel/Block buttons with an onPress
   // callback) never fires on the web build - no dialog, no callback, the
   // button just does nothing - so this needs a real in-app modal instead.
   const handleBlock = () => {
     if (!profile?.userId) {
-      Alert.alert('Not available', 'This demo profile is not connected to a real account yet.');
+      showBanner('error', 'This demo profile is not connected to a real account yet.');
       return;
     }
 
@@ -191,7 +210,7 @@ export function ProfileDetailScreen({ route, navigation }: any) {
     setBlocking(false);
 
     if (result.error) {
-      Alert.alert('Could not block', 'Please try again.');
+      showBanner('error', 'Could not block. Please try again.');
       return;
     }
 
@@ -201,12 +220,12 @@ export function ProfileDetailScreen({ route, navigation }: any) {
 
   const handleSubmitReport = async () => {
     if (!profile?.userId) {
-      Alert.alert('Not available', 'This demo profile is not connected to a real account yet.');
+      showBanner('error', 'This demo profile is not connected to a real account yet.');
       return;
     }
 
     if (!reportDescription.trim()) {
-      Alert.alert('Add a few details', 'Please describe what happened before submitting.');
+      showBanner('error', 'Please describe what happened before submitting.');
       return;
     }
 
@@ -215,13 +234,13 @@ export function ProfileDetailScreen({ route, navigation }: any) {
     setSubmittingReport(false);
 
     if (result.error) {
-      Alert.alert('Could not submit report', 'Please try again.');
+      showBanner('error', 'Could not submit report. Please try again.');
       return;
     }
 
     setShowReportModal(false);
     setReportDescription('');
-    Alert.alert('Report submitted', 'Thank you - our team will review this.');
+    showBanner('success', 'Report submitted - our team will review this.');
   };
 
   return (
@@ -234,6 +253,17 @@ export function ProfileDetailScreen({ route, navigation }: any) {
         <Text style={styles.headerTitle}>Profile</Text>
         <View style={styles.spacer} />
       </View>
+
+      {banner ? (
+        <View style={[styles.banner, banner.type === 'error' ? styles.bannerError : styles.bannerSuccess]}>
+          <MaterialCommunityIcons
+            name={banner.type === 'error' ? 'alert-circle-outline' : 'check-circle-outline'}
+            size={18}
+            color="#fff"
+          />
+          <Text style={styles.bannerText}>{banner.message}</Text>
+        </View>
+      ) : null}
 
       <ScrollView contentContainerStyle={styles.content}>
         {/* Profile Image with Gender Badge */}
@@ -389,11 +419,23 @@ export function ProfileDetailScreen({ route, navigation }: any) {
         {/* Contact Details Button */}
         {!isSelfProfile ? (
           <Pressable
-            style={styles.contactButton}
-            onPress={() => navigation.navigate('ProfileCompletion' as never)}
+            style={[styles.contactButton, (requestingContact || contactRequestSent) && styles.actionButtonDisabled]}
+            onPress={handleRequestContactDetails}
+            disabled={requestingContact || contactRequestSent}
           >
-            <MaterialCommunityIcons name="lock-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
-            <Text style={styles.contactButtonLabel}>View Contact Details</Text>
+            <MaterialCommunityIcons
+              name={contactRequestSent ? 'check-circle-outline' : 'email-fast-outline'}
+              size={20}
+              color="#fff"
+              style={{ marginRight: 8 }}
+            />
+            <Text style={styles.contactButtonLabel}>
+              {requestingContact
+                ? 'Sending request...'
+                : contactRequestSent
+                ? 'Request Sent'
+                : 'Request Contact Details'}
+            </Text>
           </Pressable>
         ) : null}
 
@@ -405,13 +447,13 @@ export function ProfileDetailScreen({ route, navigation }: any) {
             disabled={sendingMessage}
           >
             <MaterialCommunityIcons
-              name={isPremium ? 'chat-outline' : 'lock-outline'}
+              name="chat-outline"
               size={20}
               color="#fff"
               style={{ marginRight: 8 }}
             />
             <Text style={styles.actionLabel}>
-              {sendingMessage ? 'Opening chat...' : isPremium ? 'Send a Message' : 'Send a Message (Premium)'}
+              {sendingMessage ? 'Opening chat...' : 'Send a Message'}
             </Text>
           </Pressable>
         ) : null}
@@ -548,6 +590,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E8DDD0',
+  },
+  banner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  bannerSuccess: {
+    backgroundColor: theme.colors.primary,
+  },
+  bannerError: {
+    backgroundColor: '#C0392B',
+  },
+  bannerText: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
   },
   backButton: {
     width: 44,

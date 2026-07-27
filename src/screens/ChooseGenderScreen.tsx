@@ -1,163 +1,211 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View, ScrollView } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View, ScrollView } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { theme } from '../theme';
 import { useUser } from '../context/UserContext';
 
-const options = [
+const PALETTE = {
+  goldDeep: '#8C6636',
+  goldSoft: '#F4E9D4',
+  emeraldGlow: 'rgba(19, 78, 54, 0.16)',
+  goldGlow: 'rgba(173, 129, 74, 0.22)',
+};
+
+const OPTIONS = [
   {
+    key: 'male' as const,
     label: 'Male',
     description: 'Seek respectful, family-approved matches.',
-    key: 'male',
-    icon: 'ring',
+    icon: 'ring' as const,
+    cardBg: theme.colors.primarySoft,
+    cardBorder: 'rgba(19, 78, 54, 0.3)',
+    badgeBg: theme.colors.primary,
+    selectedBorder: theme.colors.primary,
+    selectedGlow: PALETTE.emeraldGlow,
+    checkBg: theme.colors.primary,
   },
   {
+    key: 'female' as const,
     label: 'Female',
     description: 'Discover meaningful connections with shared values.',
-    key: 'female',
-    icon: 'flower-tulip',
+    icon: 'flower-tulip' as const,
+    cardBg: PALETTE.goldSoft,
+    cardBorder: 'rgba(140, 102, 54, 0.34)',
+    badgeBg: PALETTE.goldDeep,
+    selectedBorder: PALETTE.goldDeep,
+    selectedGlow: PALETTE.goldGlow,
+    checkBg: PALETTE.goldDeep,
   },
 ];
+
+function GenderCard({
+  option,
+  isSelected,
+  onSelect,
+}: {
+  option: (typeof OPTIONS)[number];
+  isSelected: boolean;
+  onSelect: () => void;
+}) {
+  const badgeScale = useRef(new Animated.Value(1)).current;
+  const checkScale = useRef(new Animated.Value(isSelected ? 1 : 0.4)).current;
+  const checkOpacity = useRef(new Animated.Value(isSelected ? 1 : 0)).current;
+
+  const handlePress = () => {
+    onSelect();
+    Animated.sequence([
+      Animated.spring(badgeScale, { toValue: 1.08, useNativeDriver: true, speed: 30, bounciness: 10 }),
+      Animated.spring(badgeScale, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 8 }),
+    ]).start();
+  };
+
+  React.useEffect(() => {
+    Animated.parallel([
+      Animated.spring(checkScale, {
+        toValue: isSelected ? 1 : 0.4,
+        useNativeDriver: true,
+        speed: 24,
+        bounciness: 10,
+      }),
+      Animated.timing(checkOpacity, {
+        toValue: isSelected ? 1 : 0,
+        duration: isSelected ? 220 : 120,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [isSelected]);
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      accessibilityRole="radio"
+      accessibilityState={{ checked: isSelected }}
+      accessibilityLabel={`${option.label}. ${option.description}`}
+      style={({ pressed }) => [
+        styles.card,
+        { backgroundColor: option.cardBg, borderColor: option.cardBorder },
+        pressed && styles.cardPressed,
+        isSelected && {
+          borderColor: option.selectedBorder,
+          borderWidth: 2.5,
+          shadowColor: option.selectedBorder,
+          shadowOpacity: 0.3,
+          shadowRadius: 18,
+          shadowOffset: { width: 0, height: 8 },
+          elevation: 6,
+        },
+      ]}
+    >
+      {isSelected && <View style={[styles.cardGlowRing, { borderColor: option.selectedGlow }]} pointerEvents="none" />}
+
+      <Animated.View
+        style={[
+          styles.iconBadge,
+          { backgroundColor: option.badgeBg, transform: [{ scale: badgeScale }] },
+        ]}
+      >
+        <MaterialCommunityIcons name={option.icon} size={30} color="#fff" />
+      </Animated.View>
+
+      <View style={styles.cardCopy}>
+        <Text style={styles.cardLabel}>{option.label}</Text>
+        <Text style={styles.cardDescription}>{option.description}</Text>
+      </View>
+
+      <Animated.View
+        style={[
+          styles.checkBadge,
+          {
+            backgroundColor: option.checkBg,
+            opacity: checkOpacity,
+            transform: [{ scale: checkScale }],
+          },
+        ]}
+      >
+        <MaterialCommunityIcons name="check" size={14} color="#fff" />
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+// Time for the selection glow/checkmark animation to read before the screen
+// advances - long enough to confirm the tap landed, short enough that it
+// doesn't feel like a delay.
+const AUTO_ADVANCE_DELAY = 420;
 
 export default function ChooseGenderScreen() {
   const navigation = useNavigation();
   const { setSelectedGender } = useUser();
-  const [selected, setSelected] = React.useState<string | null>(null);
+  const [selected, setSelected] = useState<'male' | 'female' | null>(null);
+  const advanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleContinue = () => {
-    if (selected) {
-      setSelectedGender(selected as 'male' | 'female');
-      navigation.navigate('AuthSelection' as never);
+  useEffect(() => {
+    return () => {
+      if (advanceTimeoutRef.current) {
+        clearTimeout(advanceTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleSelect = (gender: 'male' | 'female') => {
+    setSelected(gender);
+    setSelectedGender(gender);
+
+    if (advanceTimeoutRef.current) {
+      clearTimeout(advanceTimeoutRef.current);
     }
+    advanceTimeoutRef.current = setTimeout(() => {
+      navigation.navigate('AuthSelection' as never);
+    }, AUTO_ADVANCE_DELAY);
   };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* Back Button */}
-      <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
-        <MaterialCommunityIcons name="chevron-left" size={28} color={theme.colors.primary} />
+      <LinearGradient
+        pointerEvents="none"
+        style={styles.ambientBlobTop}
+        colors={['rgba(173,129,74,0.24)', 'rgba(173,129,74,0)']}
+        start={{ x: 0.25, y: 0.15 }}
+        end={{ x: 1, y: 1 }}
+      />
+      <LinearGradient
+        pointerEvents="none"
+        style={styles.ambientBlobBottom}
+        colors={['rgba(19,78,54,0.16)', 'rgba(19,78,54,0)']}
+        start={{ x: 0.75, y: 0.85 }}
+        end={{ x: 0, y: 0 }}
+      />
+
+      <Pressable style={styles.backButton} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Go back">
+        <MaterialCommunityIcons name="chevron-left" size={26} color={theme.colors.primary} />
       </Pressable>
 
-      {/* Header Decoration - Pashtoon Geometric Pattern */}
-      <View style={styles.headerDecoration}>
-        <View style={styles.geometricPattern}>
-          <View style={styles.diamondSmall} />
-          <View style={[styles.diamondSmall, { marginLeft: 12, marginTop: -8 }]} />
-          <View style={[styles.diamondSmall, { marginLeft: 24, marginTop: 8 }]} />
-        </View>
-        <View style={styles.geometricPattern}>
-          <View style={styles.diamondSmall} />
-          <View style={[styles.diamondSmall, { marginLeft: 12, marginTop: -8 }]} />
-          <View style={[styles.diamondSmall, { marginLeft: 24, marginTop: 8 }]} />
-        </View>
+      <View style={styles.motifRow} aria-hidden={true}>
+        {Array.from({ length: 9 }).map((_, i) => (
+          <View key={i} style={styles.motifDiamond} />
+        ))}
       </View>
 
-      {/* Top Section */}
-      <View style={styles.topSection}>
+      <View style={styles.intro}>
+        <Text style={styles.eyebrow}>Begin your journey</Text>
         <Text style={styles.title}>Select your gender</Text>
         <Text style={styles.subtitle}>
           The first step toward a tailored Pashtoon matchmaking experience.
         </Text>
       </View>
 
-      {/* Gender Cards */}
-      <View style={styles.cardsContainer}>
-        {options.map((option) => {
-          const active = selected === option.key;
-          return (
-            <Pressable
-              key={option.key}
-              style={[styles.card, active && styles.cardActive]}
-              onPress={() => setSelected(option.key)}
-            >
-              {/* Decorative Dots */}
-              {option.key === 'male' && (
-                <>
-                  <View style={styles.dotsTopRight}>
-                    {[...Array(24)].map((_, i) => (
-                      <View
-                        key={`dot-tr-${i}`}
-                        style={[
-                          styles.dot,
-                          {
-                            width: 6,
-                            height: 6,
-                            left: (i % 6) * 10,
-                            top: Math.floor(i / 6) * 10,
-                            backgroundColor: i % 2 === 0 ? '#A84450' : '#0F7B6B',
-                          },
-                        ]}
-                      />
-                    ))}
-                  </View>
-                  <View style={styles.dotsBottomLeft}>
-                    {[...Array(15)].map((_, i) => (
-                      <View
-                        key={`dot-bl-${i}`}
-                        style={[
-                          styles.dot,
-                          {
-                            width: 6,
-                            height: 6,
-                            left: (i % 5) * 10,
-                            top: Math.floor(i / 5) * 10,
-                            backgroundColor: i % 2 === 0 ? '#A84450' : '#0F7B6B',
-                          },
-                        ]}
-                      />
-                    ))}
-                  </View>
-                </>
-              )}
-
-              {option.key === 'female' && (
-                <View style={styles.dotsBottomLeftFemale}>
-                  {[...Array(12)].map((_, i) => (
-                    <View
-                      key={`dot-bl-${i}`}
-                      style={[
-                        styles.dot,
-                        {
-                          width: 6,
-                          height: 6,
-                          left: (i % 4) * 10,
-                          top: Math.floor(i / 4) * 10,
-                          backgroundColor: i % 2 === 0 ? '#A84450' : '#0F7B6B',
-                        },
-                      ]}
-                    />
-                  ))}
-                </View>
-              )}
-
-              {/* Single Icon - Larger */}
-              <View style={styles.iconRow}>
-                <MaterialCommunityIcons
-                  name={option.icon as any}
-                  size={48}
-                  color={option.key === 'male' ? '#134E36' : '#C9A876'}
-                />
-              </View>
-
-              {/* Card Title */}
-              <Text style={styles.cardLabel}>{option.label}</Text>
-
-              {/* Card Description */}
-              <Text style={styles.cardDescription}>{option.description}</Text>
-            </Pressable>
-          );
-        })}
+      <View style={styles.options}>
+        {OPTIONS.map((option) => (
+          <GenderCard
+            key={option.key}
+            option={option}
+            isSelected={selected === option.key}
+            onSelect={() => handleSelect(option.key)}
+          />
+        ))}
       </View>
-
-      {/* Continue Button */}
-      <Pressable
-        style={[styles.continueButton, !selected && styles.continueButtonDisabled]}
-        disabled={!selected}
-        onPress={handleContinue}
-      >
-        <Text style={styles.continueText}>Continue</Text>
-      </Pressable>
     </ScrollView>
   );
 }
@@ -165,155 +213,146 @@ export default function ChooseGenderScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7E1C9',
+    backgroundColor: theme.colors.background,
   },
   contentContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 32,
-    paddingBottom: 40,
+    flexGrow: 1,
+    paddingHorizontal: 22,
+    paddingTop: 20,
+    paddingBottom: 32,
+  },
+  ambientBlobTop: {
+    position: 'absolute',
+    top: -80,
+    left: -60,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+  },
+  ambientBlobBottom: {
+    position: 'absolute',
+    top: 260,
+    right: -80,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
   },
   backButton: {
     width: 44,
     height: 44,
-    borderRadius: 12,
-    backgroundColor: '#FFF5E5',
+    borderRadius: 13,
+    backgroundColor: theme.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
+    marginBottom: 22,
   },
-  headerDecoration: {
+  motifRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 40,
-    paddingHorizontal: 20,
-    height: 60,
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 26,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    paddingTop: 13,
   },
-  geometricPattern: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  diamondSmall: {
-    width: 12,
-    height: 12,
-    backgroundColor: '#C9A876',
+  motifDiamond: {
+    width: 7,
+    height: 7,
+    backgroundColor: theme.colors.accent,
     transform: [{ rotate: '45deg' }],
+    opacity: 0.6,
   },
-  topSection: {
+  intro: {
     alignItems: 'center',
-    marginBottom: 36,
+    marginBottom: 34,
+  },
+  eyebrow: {
+    fontFamily: 'Fraunces_500Medium_Italic',
+    fontSize: 14,
+    color: PALETTE.goldDeep,
+    marginBottom: 10,
+    letterSpacing: 0.2,
   },
   title: {
-    color: '#1F2924',
+    fontFamily: 'Fraunces_600SemiBold',
     fontSize: 32,
-    fontWeight: '500',
-    marginBottom: 12,
+    color: theme.colors.text,
     textAlign: 'center',
-    fontFamily: 'Georgia',
-    letterSpacing: 0.8,
+    marginBottom: 12,
+    letterSpacing: -0.2,
   },
   subtitle: {
-    color: '#5A6360',
-    fontSize: 16,
-    lineHeight: 25,
+    fontFamily: 'Karla_400Regular',
+    fontSize: 15.5,
+    lineHeight: 23,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
-    maxWidth: 320,
-    fontFamily: 'Georgia',
-    letterSpacing: 0.3,
-    fontWeight: '400',
+    maxWidth: 300,
   },
-  cardsContainer: {
-    marginBottom: 24,
-    gap: 14,
+  options: {
+    gap: 16,
+    marginBottom: 28,
   },
   card: {
-    backgroundColor: '#F5E6D3',
-    borderRadius: 24,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: '#E3D4C4',
     position: 'relative',
-    overflow: 'hidden',
-    minHeight: 140,
-    justifyContent: 'center',
+    flexDirection: 'column',
     alignItems: 'center',
+    minHeight: 44,
+    padding: 24,
+    borderRadius: 24,
+    borderWidth: 2,
+    shadowColor: theme.colors.shadow,
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
   },
-  cardActive: {
-    borderColor: '#C9A876',
-    backgroundColor: '#FDF9F4',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 5,
+  cardPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.98 }],
   },
-  iconRow: {
-    flexDirection: 'row',
+  cardGlowRing: {
+    position: 'absolute',
+    top: -4,
+    left: -4,
+    right: -4,
+    bottom: -4,
+    borderRadius: 28,
+    borderWidth: 5,
+  },
+  iconBadge: {
+    width: 60,
+    height: 60,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 14,
   },
+  cardCopy: {
+    alignItems: 'center',
+    gap: 6,
+  },
   cardLabel: {
-    fontSize: 28,
-    fontWeight: '600',
-    color: '#1F2924',
-    marginBottom: 8,
+    fontFamily: 'Fraunces_600SemiBold',
+    fontSize: 22,
+    color: theme.colors.text,
     textAlign: 'center',
-    fontFamily: 'Georgia',
-    letterSpacing: 0.5,
   },
   cardDescription: {
-    color: '#5A6360',
-    fontSize: 16,
-    lineHeight: 24,
+    fontFamily: 'Karla_400Regular',
+    fontSize: 14,
+    lineHeight: 19,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
-    fontFamily: 'Georgia',
-    fontWeight: '400',
-    letterSpacing: 0.2,
+    maxWidth: 240,
   },
-  dotsTopRight: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 60,
-    height: 60,
-  },
-  dotsBottomLeft: {
-    position: 'absolute',
-    bottom: 12,
-    left: 12,
-    width: 50,
-    height: 50,
-  },
-  dotsBottomLeftFemale: {
-    position: 'absolute',
-    bottom: 16,
-    left: 16,
-    width: 40,
-    height: 40,
-  },
-  dot: {
-    position: 'absolute',
-    borderRadius: 3,
-    opacity: 0.75,
-  },
-  continueButton: {
-    backgroundColor: theme.colors.primary,
-    borderRadius: 22,
-    paddingVertical: 16,
-    marginTop: 12,
+  checkBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: 'center',
-    marginHorizontal: 0,
-  },
-  continueButtonDisabled: {
-    backgroundColor: '#D4D4D4',
-    opacity: 0.6,
-  },
-  continueText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-    letterSpacing: 0.3,
-    fontFamily: 'Georgia',
+    justifyContent: 'center',
+    position: 'absolute',
+    top: 14,
+    right: 14,
   },
 });
