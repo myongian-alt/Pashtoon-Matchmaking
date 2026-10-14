@@ -22,6 +22,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.khpalwali.matrimonial",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -29,6 +30,15 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "94655609-9907-4e43-bb7b-fee1de0b7c02"
+      }
+    },
+    "owner": "syedshah6226",
+    "plugins": [
+      "expo-web-browser"
+    ]
   }
 }

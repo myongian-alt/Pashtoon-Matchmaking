@@ -1,14 +1,50 @@
 import React from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View, ScrollView, Animated } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View, ScrollView, Animated } from 'react-native';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 import { theme } from '../../theme';
 import { LinkText } from '../../components/common/LinkText';
+import { signInWithGoogle } from '../../lib/auth';
+import { toSafeErrorMessage } from '../../lib/errorMessages';
+import { useUser } from '../../context/UserContext';
 
 export default function AuthSelectionScreen() {
   const navigation = useNavigation();
+  const { setIsAuthenticated, setIsGuest, setUserEmail } = useUser();
   const [rotateValue] = React.useState(new Animated.Value(0));
   const [opacityValue] = React.useState(new Animated.Value(0.7));
+  const [googleLoading, setGoogleLoading] = React.useState(false);
+  const [googleError, setGoogleError] = React.useState<string | null>(null);
+
+  const handleGoogleSignIn = async () => {
+    setGoogleError(null);
+    setGoogleLoading(true);
+    const response = await signInWithGoogle();
+    setGoogleLoading(false);
+
+    if (!response.success) {
+      setGoogleError(toSafeErrorMessage(response.error, 'Could not sign in with Google. Please try again.'));
+      return;
+    }
+
+    // Web: signInWithGoogle already kicked off a full-page redirect to
+    // Google - this screen is about to unload, nothing left to do here.
+    if (Platform.OS === 'web') {
+      return;
+    }
+
+    // Native: the in-app browser flow already completed and a real session
+    // came back.
+    setIsAuthenticated(true);
+    setIsGuest(false);
+    setUserEmail(response.user?.email || null);
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [{ name: 'Tabs' }],
+      })
+    );
+  };
 
   React.useEffect(() => {
     // Rotation animation
@@ -120,6 +156,26 @@ export default function AuthSelectionScreen() {
           <MaterialCommunityIcons name="chevron-right" size={20} color="#134E36" style={styles.chevron} />
         </Pressable>
 
+        {/* Google Option */}
+        <Pressable
+          style={[styles.methodCard, googleLoading && styles.methodCardDisabled]}
+          onPress={handleGoogleSignIn}
+          disabled={googleLoading}
+        >
+          <View style={[styles.methodIcon, styles.googleIcon]}>
+            {googleLoading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <MaterialCommunityIcons name="google" size={24} color="#FFFFFF" />
+            )}
+          </View>
+          <Text style={styles.methodLabel}>Google</Text>
+          <Text style={styles.methodDescription}>
+            {googleLoading ? 'Connecting...' : 'Continue with your Google account'}
+          </Text>
+          <MaterialCommunityIcons name="chevron-right" size={20} color="#134E36" style={styles.chevron} />
+        </Pressable>
+
         {/* Phone Option */}
         <Pressable style={styles.methodCard} onPress={() => navigation.navigate('PhoneAuth' as never)}>
           <View style={styles.methodIcon}>
@@ -140,6 +196,8 @@ export default function AuthSelectionScreen() {
           <MaterialCommunityIcons name="chevron-right" size={20} color="#0F7B6B" style={styles.chevron} />
         </Pressable>
       </View>
+
+      {googleError && <Text style={styles.errorText}>{googleError}</Text>}
 
       {/* Decorative Footer Pattern */}
       <View style={styles.decorativeFooter}>
@@ -295,6 +353,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#EFF7F5',
     borderColor: '#134E36',
   },
+  methodCardDisabled: {
+    opacity: 0.7,
+  },
   methodIcon: {
     width: 48,
     height: 48,
@@ -305,6 +366,17 @@ const styles = StyleSheet.create({
   },
   guestIcon: {
     backgroundColor: '#0F7B6B',
+  },
+  googleIcon: {
+    backgroundColor: '#C5473A',
+  },
+  errorText: {
+    color: '#C5473A',
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: -8,
+    marginBottom: 16,
+    paddingHorizontal: 8,
   },
   methodLabel: {
     fontSize: 17,

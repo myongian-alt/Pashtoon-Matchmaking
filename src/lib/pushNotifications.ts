@@ -9,8 +9,9 @@ import { savePushToken } from './database';
 //   on Android or iOS. This registration flow will only obtain a real,
 //   deliverable token inside an EAS development or production build.
 // - Getting a token also requires a configured EAS project ID
-//   (app.json -> expo.extra.eas.projectId, set by `eas init`), which this
-//   project does not yet have. Until then this function safely no-ops.
+//   (app.json -> expo.extra.eas.projectId, set by `eas init`) - now present,
+//   but still needs a real EAS development/production build (not Expo Go)
+//   to actually receive a deliverable token.
 // - This module only handles the client-side registration half. Actually
 //   sending a push (e.g. from the notify_on_like/match/message triggers in
 //   migration 005) requires a server-side sender - typically a Supabase Edge
@@ -18,6 +19,9 @@ import { savePushToken } from './database';
 //   API with the tokens stored in public.push_tokens (migration 022).
 
 Notifications.setNotificationHandler({
+  // shouldShowBanner/shouldShowList replace the older shouldShowAlert as of
+  // a newer expo-notifications version - both control foreground display
+  // (banner = transient overlay, list = notification center entry).
   handleNotification: async () => ({
     shouldShowBanner: true,
     shouldShowList: true,

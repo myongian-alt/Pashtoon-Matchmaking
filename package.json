@@ -27,6 +27,7 @@
     "expo-linear-gradient": "~56.0.4",
     "expo-linking": "~7.0.5",
     "expo-notifications": "~56.0.22",
+    "expo-web-browser": "~56.0.6",
     "react": "18.2.0",
     "react-dom": "^18.2.0",
     "react-native": "0.72.8",
