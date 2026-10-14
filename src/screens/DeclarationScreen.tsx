@@ -25,10 +25,10 @@ const PLEDGES: {
   title: string;
   text: string;
 }[] = [
-  { icon: 'heart-outline', color: theme.colors.emerald, title: 'Sincere intention', text: "I'm here only to find a marriage partner." },
-  { icon: 'hand-heart-outline', color: theme.colors.gold, title: 'Respect & haya', text: 'Decent words, no harassment — honouring Pashtunwali and Islamic adab.' },
-  { icon: 'lock-outline', color: theme.colors.pomegranateDeep, title: 'Privacy is amanah', text: "I won't screenshot, share or record anyone's photos or chats." },
-  { icon: 'shield-check-outline', color: theme.colors.lapis, title: 'Truthful profile', text: 'Real name, age and marital status. No fake accounts.' },
+  { icon: 'heart', color: theme.colors.emerald, title: 'Sincere intention', text: "I'm here only to find a marriage partner." },
+  { icon: 'hand-heart', color: theme.colors.gold, title: 'Respect & haya', text: 'Decent words, no harassment — honouring Pashtunwali and Islamic adab.' },
+  { icon: 'lock', color: theme.colors.pomegranateDeep, title: 'Privacy is amanah', text: "I won't screenshot, share or record anyone's photos or chats." },
+  { icon: 'shield-check', color: theme.colors.lapis, title: 'Truthful profile', text: 'Real name, age and marital status. No fake accounts.' },
 ];
 
 export default function DeclarationScreen() {
@@ -63,8 +63,13 @@ export default function DeclarationScreen() {
         <View style={styles.list}>
           {PLEDGES.map((pledge) => (
             <View key={pledge.title} style={styles.pledgeCard}>
-              <View style={[styles.pledgeIconBadge, { backgroundColor: `${pledge.color}1a` }]}>
-                <MaterialCommunityIcons name={pledge.icon} size={22} color={pledge.color} />
+              <View
+                style={[
+                  styles.pledgeIconBadge,
+                  { backgroundColor: pledge.color, shadowColor: pledge.color },
+                ]}
+              >
+                <MaterialCommunityIcons name={pledge.icon} size={24} color="#fff" />
               </View>
               <View style={styles.pledgeCopy}>
                 <Text style={[styles.pledgeTitle, { color: pledge.color }]}>{pledge.title}</Text>
@@ -188,11 +193,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pledgeIconBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowOpacity: 0.35,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 10,
+    elevation: 4,
   },
   pledgeCopy: {
     flex: 1,

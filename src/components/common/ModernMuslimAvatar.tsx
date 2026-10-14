@@ -23,7 +23,11 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F8F5F0',
+    // Transparent, not a fixed color — every call site already wraps this in
+    // its own container that sets the appropriate backdrop (a tinted arch
+    // fill, a card's empty-photo placeholder, etc.), so this shouldn't paint
+    // over that with its own opinion.
+    backgroundColor: 'transparent',
   },
   image: {
     width: '100%',

@@ -2,11 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Animated, Pressable, StyleSheet, Text, View, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../theme';
 import { fonts } from '../theme/typography';
 import { useUser } from '../context/UserContext';
 import { ArchFrame } from '../components/common/ArchFrame';
 import { EmbroideryStrip } from '../components/common/EmbroideryStrip';
+import { ModernMuslimAvatar } from '../components/common/ModernMuslimAvatar';
 
 const ARCH_SIZE = 108;
 
@@ -15,7 +17,6 @@ const OPTIONS = [
     key: 'male' as const,
     label: 'Groom-to-be',
     pashto: 'د واده زلمی',
-    icon: 'account' as const,
     archColor: theme.colors.emerald,
     archBg: theme.colors.emeraldTint,
   },
@@ -23,10 +24,18 @@ const OPTIONS = [
     key: 'female' as const,
     label: 'Bride-to-be',
     pashto: 'ناوې',
-    icon: 'flower-tulip' as const,
     archColor: theme.colors.pomegranateDeep,
     archBg: theme.colors.pomegranateTint,
   },
+];
+
+// Visual language selector only — sets which label renders below, not a full
+// app-wide translation (that's separate, larger i18n/RTL work still ahead;
+// see the project plan). English is the default per the brief.
+const LANGUAGES: { key: 'en' | 'ps' | 'ur'; label: string }[] = [
+  { key: 'en', label: 'English' },
+  { key: 'ps', label: 'پښتو' },
+  { key: 'ur', label: 'اردو' },
 ];
 
 function GenderCard({
@@ -71,7 +80,7 @@ function GenderCard({
     >
       <ArchFrame width={ARCH_SIZE} height={ARCH_SIZE} borderColor={option.archColor}>
         <View style={[styles.archFill, { backgroundColor: option.archBg }]}>
-          <MaterialCommunityIcons name={option.icon} size={42} color={option.archColor} />
+          <ModernMuslimAvatar gender={option.key} size={ARCH_SIZE - 16} />
         </View>
       </ArchFrame>
 
@@ -101,8 +110,10 @@ const AUTO_ADVANCE_DELAY = 420;
 
 export default function ChooseGenderScreen() {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const { setSelectedGender } = useUser();
   const [selected, setSelected] = useState<'male' | 'female' | null>(null);
+  const [language, setLanguage] = useState<'en' | 'ps' | 'ur'>('en');
   const advanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -126,33 +137,46 @@ export default function ChooseGenderScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <Pressable style={styles.backButton} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Go back">
-        <MaterialCommunityIcons name="chevron-left" size={26} color={theme.colors.emerald} />
-      </Pressable>
-
-      <Text style={styles.eyebrow}>Step 2 of 4</Text>
-      <View style={styles.intro}>
+    <View style={styles.container}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+        <Pressable style={styles.backButton} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Go back">
+          <MaterialCommunityIcons name="chevron-left" size={26} color={theme.colors.lightTextOnDark} />
+        </Pressable>
+        <Text style={styles.eyebrow}>Step 2 of 4</Text>
         <Text style={styles.title}>
           Who's <Text style={styles.titleItalic}>joining?</Text>
         </Text>
+
+        <View style={styles.languageRow}>
+          {LANGUAGES.map((lang) => (
+            <Pressable
+              key={lang.key}
+              onPress={() => setLanguage(lang.key)}
+              style={[styles.languagePill, language === lang.key && styles.languagePillActive]}
+            >
+              <Text style={[styles.languageText, language === lang.key && styles.languageTextActive]}>
+                {lang.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
       </View>
 
-      <View style={styles.options}>
-        {OPTIONS.map((option) => (
-          <GenderCard
-            key={option.key}
-            option={option}
-            isSelected={selected === option.key}
-            onSelect={() => handleSelect(option.key)}
-          />
-        ))}
-      </View>
+      <EmbroideryStrip color={theme.colors.goldLight} background={theme.colors.pomegranateDeep} />
 
-      <View style={styles.stripWrap}>
-        <EmbroideryStrip color={theme.colors.goldLight} />
-      </View>
-    </ScrollView>
+      <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
+        <View style={styles.options}>
+          {OPTIONS.map((option) => (
+            <GenderCard
+              key={option.key}
+              option={option}
+              isSelected={selected === option.key}
+              onSelect={() => handleSelect(option.key)}
+            />
+          ))}
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -161,42 +185,67 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.ivory,
   },
-  contentContainer: {
-    flexGrow: 1,
+  header: {
+    backgroundColor: theme.colors.emeraldDeep,
     paddingHorizontal: 22,
-    paddingTop: 20,
-    paddingBottom: 32,
+    paddingBottom: 20,
   },
   backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 13,
-    backgroundColor: theme.colors.invitationCard,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 22,
+    marginBottom: 16,
   },
   eyebrow: {
     fontFamily: fonts.labelBold,
     fontSize: 12,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: theme.colors.gold,
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  intro: {
-    alignItems: 'center',
-    marginBottom: 34,
+    color: theme.colors.goldLight,
+    marginBottom: 6,
   },
   title: {
     fontFamily: fonts.heading,
-    fontSize: 32,
-    color: theme.colors.ink,
-    textAlign: 'center',
+    fontSize: 28,
+    color: theme.colors.lightTextOnDark,
+    marginBottom: 16,
   },
   titleItalic: {
     fontFamily: fonts.bodyItalic,
+  },
+  languageRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  languagePill: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  languagePillActive: {
+    backgroundColor: theme.colors.gold,
+  },
+  languageText: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 13.5,
+    color: theme.colors.lightTextOnDark,
+  },
+  languageTextActive: {
+    color: theme.colors.ink,
+    fontFamily: fonts.labelBold,
+  },
+  body: {
+    flex: 1,
+  },
+  bodyContent: {
+    flexGrow: 1,
+    paddingHorizontal: 22,
+    paddingTop: 28,
+    paddingBottom: 32,
   },
   options: {
     flexDirection: 'row',
@@ -259,8 +308,5 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 14,
     right: 14,
-  },
-  stripWrap: {
-    marginTop: 8,
   },
 });

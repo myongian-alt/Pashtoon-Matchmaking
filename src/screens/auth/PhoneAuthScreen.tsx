@@ -14,6 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../../theme';
+import { fonts } from '../../theme/typography';
 import { AuthButton } from '../../components/common/AuthButton';
 import { LinkText } from '../../components/common/LinkText';
 import { useUser } from '../../context/UserContext';
@@ -26,9 +27,11 @@ type PhoneAuthNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Ph
 // Common calling codes for this app's likely audience (Pashtoons across
 // Afghanistan/Pakistan and the diaspora) - not exhaustive, but the user can
 // always type a full "+<code>" number directly and this list is skipped.
+// Pakistan (+92) listed first and preselected by default below, per the
+// most common expected audience.
 const COUNTRY_CODES = [
-  { code: '+93', label: 'Afghanistan' },
   { code: '+92', label: 'Pakistan' },
+  { code: '+93', label: 'Afghanistan' },
   { code: '+971', label: 'United Arab Emirates' },
   { code: '+966', label: 'Saudi Arabia' },
   { code: '+974', label: 'Qatar' },
@@ -95,13 +98,17 @@ export default function PhoneAuthScreen() {
       style={styles.container}
     >
       <View style={styles.inner}>
+        <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
+          <MaterialCommunityIcons name="chevron-left" size={26} color={theme.colors.emerald} />
+        </Pressable>
+
         <Text style={styles.heading}>Login with phone</Text>
         <Text style={styles.description}>
-          Enter your phone number to receive a secure OTP and continue with
-          Pashtoon Matchmaking.
+          Enter your phone number to receive a secure code and continue with Khpalwali.
         </Text>
+
         <View style={styles.inputCard}>
-          <Text style={styles.inputLabel}>Phone Number</Text>
+          <Text style={styles.inputLabel}>Phone number</Text>
           <View style={styles.phoneRow}>
             <Pressable
               style={styles.codeButton}
@@ -109,28 +116,25 @@ export default function PhoneAuthScreen() {
               disabled={loading}
             >
               <Text style={styles.codeButtonText}>{countryCode}</Text>
-              <MaterialCommunityIcons name="chevron-down" size={18} color={theme.colors.primary} />
+              <MaterialCommunityIcons name="chevron-down" size={16} color={theme.colors.emerald} />
             </Pressable>
             <TextInput
-              style={[styles.input, styles.phoneInput]}
-              placeholder="300 1234567"
-              placeholderTextColor={theme.colors.border}
+              style={styles.phoneInput}
+              placeholder="300 555 0412"
+              placeholderTextColor={theme.colors.faintText}
               keyboardType="phone-pad"
               value={phone}
               onChangeText={setPhone}
               editable={!loading}
             />
           </View>
-          <Text style={styles.helperText}>
-            Select your country code, or type a full number starting with "+".
-          </Text>
         </View>
 
         {error && <Text style={styles.errorText}>{error}</Text>}
 
         <View style={styles.buttonContainer}>
           <AuthButton
-            label={loading ? '' : 'Continue'}
+            label={loading ? '' : 'Send code'}
             onPress={handleContinue}
             disabled={loading}
           >
@@ -179,68 +183,91 @@ export default function PhoneAuthScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.ivory,
   },
   inner: {
     flex: 1,
     padding: 24,
     justifyContent: 'center',
   },
+  backButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 13,
+    backgroundColor: theme.colors.invitationCard,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'absolute',
+    top: 24,
+    left: 24,
+  },
   heading: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: theme.colors.primary,
-    marginBottom: 16,
+    fontFamily: fonts.heading,
+    fontSize: 26,
+    color: theme.colors.ink,
+    marginBottom: 12,
   },
   description: {
-    color: theme.colors.textSecondary,
-    fontSize: 16,
-    lineHeight: 24,
-    marginBottom: 28,
+    fontFamily: fonts.body,
+    color: theme.colors.mutedText,
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 26,
     maxWidth: 340,
   },
   inputCard: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: 20,
-    padding: 18,
-    marginBottom: 24,
+    backgroundColor: theme.colors.invitationCard,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: theme.colors.cardBorder,
+    padding: 16,
+    marginBottom: 20,
   },
   inputLabel: {
-    color: theme.colors.muted,
-    fontSize: 14,
+    color: theme.colors.mutedText,
+    fontFamily: fonts.labelBold,
+    fontSize: 12.5,
+    letterSpacing: 0.3,
     marginBottom: 10,
-    fontWeight: '600',
   },
   phoneRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     gap: 10,
+    backgroundColor: theme.colors.ivory,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.inputBorder,
+    paddingHorizontal: 12,
   },
   codeButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    paddingHorizontal: 4,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    paddingVertical: 12,
+    paddingRight: 10,
+    borderRightWidth: 1,
+    borderRightColor: theme.colors.inputBorder,
   },
   codeButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: theme.colors.primary,
+    fontFamily: fonts.labelBold,
+    fontSize: 15,
+    color: theme.colors.emerald,
   },
   phoneInput: {
     flex: 1,
-    marginBottom: 0,
+    fontFamily: fonts.body,
+    fontSize: 16,
+    color: theme.colors.ink,
+    paddingVertical: 12,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(12, 12, 12, 0.45)',
+    backgroundColor: 'rgba(31, 26, 23, 0.45)',
     justifyContent: 'flex-end',
   },
   modalSheet: {
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.invitationCard,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     padding: 24,
@@ -248,9 +275,9 @@ const styles = StyleSheet.create({
     maxHeight: '75%',
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: theme.colors.text,
+    fontFamily: fonts.labelBold,
+    fontSize: 17,
+    color: theme.colors.ink,
     marginBottom: 14,
   },
   codeOption: {
@@ -259,16 +286,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    borderBottomColor: theme.colors.cardBorder,
   },
   codeOptionLabel: {
+    fontFamily: fonts.body,
     fontSize: 15,
-    color: theme.colors.text,
+    color: theme.colors.ink,
   },
   codeOptionCode: {
+    fontFamily: fonts.labelBold,
     fontSize: 15,
-    fontWeight: '700',
-    color: theme.colors.primary,
+    color: theme.colors.emerald,
   },
   modalCancel: {
     marginTop: 12,
@@ -276,30 +304,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   modalCancelText: {
-    color: theme.colors.textSecondary,
-    fontWeight: '600',
-  },
-  input: {
-    fontSize: 16,
-    color: theme.colors.text,
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
-    marginBottom: 8,
-  },
-  helperText: {
-    fontSize: 12,
-    color: theme.colors.muted,
-    marginTop: 8,
-  },
-  providerHint: {
-    fontSize: 12,
-    color: theme.colors.textSecondary,
-    marginTop: 8,
-    lineHeight: 18,
+    color: theme.colors.mutedText,
+    fontFamily: fonts.bodyMedium,
   },
   errorText: {
-    color: '#E74C3C',
+    color: theme.colors.pomegranateBright,
+    fontFamily: fonts.body,
     fontSize: 14,
     marginBottom: 16,
     paddingHorizontal: 4,
@@ -314,7 +324,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   bottomText: {
-    color: theme.colors.textSecondary,
+    color: theme.colors.mutedText,
+    fontFamily: fonts.body,
     fontSize: 14,
   },
 });

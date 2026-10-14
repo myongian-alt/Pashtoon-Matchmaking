@@ -1,18 +1,25 @@
 import React from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View, ScrollView, Animated } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View, ScrollView } from 'react-native';
 import { useNavigation, CommonActions } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { theme } from '../../theme';
+import { fonts } from '../../theme/typography';
 import { LinkText } from '../../components/common/LinkText';
 import { signInWithGoogle } from '../../lib/auth';
 import { toSafeErrorMessage } from '../../lib/errorMessages';
 import { useUser } from '../../context/UserContext';
 
+const METHODS = [
+  { key: 'email', label: 'Email', icon: 'email-outline' as const, description: 'Connect with your email' },
+  { key: 'google', label: 'Google', icon: 'google' as const, description: 'Continue with your Google account' },
+  { key: 'phone', label: 'Phone', icon: 'phone-outline' as const, description: 'Login with phone number' },
+];
+
 export default function AuthSelectionScreen() {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const { setIsAuthenticated, setIsGuest, setUserEmail } = useUser();
-  const [rotateValue] = React.useState(new Animated.Value(0));
-  const [opacityValue] = React.useState(new Animated.Value(0.7));
   const [googleLoading, setGoogleLoading] = React.useState(false);
   const [googleError, setGoogleError] = React.useState<string | null>(null);
 
@@ -46,174 +53,64 @@ export default function AuthSelectionScreen() {
     );
   };
 
-  React.useEffect(() => {
-    // Rotation animation
-    Animated.loop(
-      Animated.timing(rotateValue, {
-        toValue: 1,
-        duration: 3000,
-        useNativeDriver: true,
-      })
-    ).start();
-
-    // Opacity pulsing animation
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacityValue, {
-          toValue: 1,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacityValue, {
-          toValue: 0.5,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, [rotateValue, opacityValue]);
-
-  const spin = rotateValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['45deg', '405deg'],
-  });
+  const handlePress = (key: string) => {
+    if (key === 'email') return navigation.navigate('EmailAuth' as never);
+    if (key === 'phone') return navigation.navigate('PhoneAuth' as never);
+    if (key === 'google') return handleGoogleSignIn();
+  };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* Back Button */}
+    <ScrollView style={styles.container} contentContainerStyle={[styles.contentContainer, { paddingTop: insets.top + 16 }]}>
       <Pressable style={styles.backButton} onPress={() => navigation.goBack()}>
-        <MaterialCommunityIcons name="chevron-left" size={28} color={theme.colors.primary} />
+        <MaterialCommunityIcons name="chevron-left" size={26} color={theme.colors.emerald} />
       </Pressable>
 
-      {/* Decorative Header Pattern */}
-      <View style={styles.decorativeHeader}>
-        <View style={styles.geometricLine} />
-        <View style={styles.geometricLine} />
-      </View>
+      <Text style={styles.eyebrow}>Step 3 of 4</Text>
+      <Text style={styles.title}>
+        Sign in <Text style={styles.titleItalic}>or join</Text>
+      </Text>
+      <Text style={styles.subtitle}>We'll text a code. Your number is never shown.</Text>
 
-      {/* Main Title - Khpalwali with Decorative Diamond Rings */}
-      <View style={styles.titleSection}>
-        {/* Left Decorative Diamond Ring - Animated */}
-        <Animated.View
-          style={[
-            styles.diamondRingLeft,
-            {
-              transform: [
-                { rotate: spin },
-              ],
-              opacity: opacityValue,
-            },
-          ]}
-        />
-        
-        <Text style={styles.mainTitle}>Khpalwali</Text>
-        
-        {/* Right Decorative Diamond Ring - Animated */}
-        <Animated.View
-          style={[
-            styles.diamondRingRight,
-            {
-              transform: [
-                { rotate: spin },
-              ],
-              opacity: opacityValue,
-            },
-          ]}
-        />
-      </View>
-
-      {/* Subtitle */}
-      <Text style={styles.subtitleText}>Find your perfect match</Text>
-
-      {/* Decorative Bead Pattern */}
-      <View style={styles.decorativeBeads}>
-        {[...Array(20)].map((_, i) => (
-          <View
-            key={`bead-${i}`}
-            style={[
-              styles.bead,
-              {
-                width: 6,
-                height: 6,
-                marginRight: i % 5 === 4 ? 0 : 8,
-                marginBottom: 8,
-                backgroundColor: i % 3 === 0 ? '#A84450' : i % 3 === 1 ? '#0F7B6B' : '#C9A876',
-              },
-            ]}
-          />
-        ))}
-      </View>
-
-      {/* Login Options */}
-      <View style={styles.buttons}>
-        {/* Email Option */}
-        <Pressable style={styles.methodCard} onPress={() => navigation.navigate('EmailAuth' as never)}>
-          <View style={styles.methodIcon}>
-            <MaterialCommunityIcons name="email-outline" size={24} color="#FFFFFF" />
-          </View>
-          <Text style={styles.methodLabel}>Email</Text>
-          <Text style={styles.methodDescription}>Connect with your email</Text>
-          <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.primary} style={styles.chevron} />
-        </Pressable>
-
-        {/* Google Option */}
-        <Pressable
-          style={[styles.methodCard, googleLoading && styles.methodCardDisabled]}
-          onPress={handleGoogleSignIn}
-          disabled={googleLoading}
-        >
-          <View style={[styles.methodIcon, styles.googleIcon]}>
-            {googleLoading ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <MaterialCommunityIcons name="google" size={24} color="#FFFFFF" />
-            )}
-          </View>
-          <Text style={styles.methodLabel}>Google</Text>
-          <Text style={styles.methodDescription}>
-            {googleLoading ? 'Connecting...' : 'Continue with your Google account'}
-          </Text>
-          <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.primary} style={styles.chevron} />
-        </Pressable>
-
-        {/* Phone Option */}
-        <Pressable style={styles.methodCard} onPress={() => navigation.navigate('PhoneAuth' as never)}>
-          <View style={styles.methodIcon}>
-            <MaterialCommunityIcons name="phone-outline" size={24} color="#FFFFFF" />
-          </View>
-          <Text style={styles.methodLabel}>Phone</Text>
-          <Text style={styles.methodDescription}>Login with phone number</Text>
-          <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.primary} style={styles.chevron} />
-        </Pressable>
-
-        {/* Guest Option */}
-        <Pressable style={[styles.methodCard, styles.guestCard]} onPress={() => navigation.navigate('Tabs' as never)}>
-          <View style={[styles.methodIcon, styles.guestIcon]}>
-            <MaterialCommunityIcons name="account-heart-outline" size={24} color="#FFFFFF" />
-          </View>
-          <Text style={styles.methodLabel}>Continue as Guest</Text>
-          <Text style={styles.methodDescription}>Browse without signing up</Text>
-          <MaterialCommunityIcons name="chevron-right" size={20} color="#0F7B6B" style={styles.chevron} />
-        </Pressable>
+      <View style={styles.methods}>
+        {METHODS.map((method) => {
+          const isGoogle = method.key === 'google';
+          const loading = isGoogle && googleLoading;
+          return (
+            <Pressable
+              key={method.key}
+              style={({ pressed }) => [styles.methodCard, pressed && styles.methodCardPressed, loading && styles.methodCardDisabled]}
+              onPress={() => handlePress(method.key)}
+              disabled={loading}
+            >
+              <View style={[styles.methodIcon, { backgroundColor: theme.colors.emerald }]}>
+                {loading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <MaterialCommunityIcons name={method.icon} size={22} color="#fff" />
+                )}
+              </View>
+              <View style={styles.methodCopy}>
+                <Text style={styles.methodLabel}>{method.label}</Text>
+                <Text style={styles.methodDescription}>{loading ? 'Connecting...' : method.description}</Text>
+              </View>
+              <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.faintText} />
+            </Pressable>
+          );
+        })}
       </View>
 
       {googleError && <Text style={styles.errorText}>{googleError}</Text>}
 
-      {/* Decorative Footer Pattern */}
-      <View style={styles.decorativeFooter}>
-        <View style={styles.geometricDot} />
-        <View style={styles.geometricDot} />
-        <View style={styles.geometricDot} />
-      </View>
+      <Pressable style={styles.guestLink} onPress={() => navigation.navigate('Tabs' as never)}>
+        <MaterialCommunityIcons name="eye-outline" size={16} color={theme.colors.emerald} />
+        <Text style={styles.guestText}>Browse as guest</Text>
+      </Pressable>
 
-      {/* Footer Links */}
       <View style={styles.footerRow}>
-        <Text style={styles.footerText}>By continuing, you agree to our </Text>
-        <LinkText label="Privacy Policy" onPress={() => {}} />
-      </View>
-      <View style={styles.footerRow}>
-        <Text style={styles.footerText}>and </Text>
+        <Text style={styles.footerText}>By continuing you agree to our </Text>
         <LinkText label="Terms" onPress={() => {}} />
+        <Text style={styles.footerText}> and </Text>
+        <LinkText label="Privacy Policy" onPress={() => {}} />
       </View>
     </ScrollView>
   );
@@ -222,193 +119,108 @@ export default function AuthSelectionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7E1C9',
+    backgroundColor: theme.colors.ivory,
   },
   contentContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingHorizontal: 22,
     paddingBottom: 40,
   },
   backButton: {
     width: 44,
     height: 44,
-    borderRadius: 12,
-    backgroundColor: '#FFF5E5',
+    borderRadius: 13,
+    backgroundColor: theme.colors.invitationCard,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 22,
   },
-  decorativeHeader: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+  eyebrow: {
+    fontFamily: fonts.labelBold,
+    fontSize: 12,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: theme.colors.gold,
+    marginBottom: 8,
+  },
+  title: {
+    fontFamily: fonts.heading,
+    fontSize: 28,
+    color: theme.colors.ink,
+    marginBottom: 8,
+  },
+  titleItalic: {
+    fontFamily: fonts.bodyItalic,
+  },
+  subtitle: {
+    fontFamily: fonts.body,
+    fontSize: 14.5,
+    color: theme.colors.mutedText,
+    marginBottom: 28,
+  },
+  methods: {
     gap: 12,
-    marginBottom: 24,
-  },
-  geometricLine: {
-    width: 2,
-    height: 24,
-    backgroundColor: '#C9A876',
-    transform: [{ rotate: '45deg' }],
-  },
-  titleSection: {
-    alignItems: 'center',
-    marginBottom: 12,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  decorativeRingLeft: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    borderWidth: 2.5,
-    borderColor: '#C9A876',
-    marginRight: 16,
-    opacity: 0.4,
-  },
-  decorativeRingRight: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    borderWidth: 2.5,
-    borderColor: '#C9A876',
-    marginLeft: 16,
-    opacity: 0.4,
-  },
-  diamondRingLeft: {
-    width: 52,
-    height: 52,
-    backgroundColor: '#D4AF37',
-    marginRight: 16,
-    borderWidth: 3,
-    borderColor: '#FFD700',
-    shadowColor: '#C9A876',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  diamondRingRight: {
-    width: 52,
-    height: 52,
-    backgroundColor: '#D4AF37',
-    marginLeft: 16,
-    borderWidth: 3,
-    borderColor: '#FFD700',
-    shadowColor: '#C9A876',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  mainTitle: {
-    fontSize: 48,
-    fontWeight: '900',
-    color: '#A83860',
-    fontFamily: 'Georgia',
-    letterSpacing: 2,
-    fontStyle: 'italic',
-    textAlign: 'center',
-    textShadowColor: '#6B1E3A',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
-  subtitleText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#5A6360',
-    fontFamily: 'Georgia',
-    letterSpacing: 0.5,
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  decorativeBeads: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 32,
-    maxWidth: '60%',
-    alignSelf: 'center',
-  },
-  bead: {
-    borderRadius: 3,
-    opacity: 0.8,
-  },
-  buttons: {
-    gap: 12,
-    marginBottom: 24,
+    marginBottom: 20,
   },
   methodCard: {
-    backgroundColor: '#FFF5E5',
-    borderRadius: 18,
-    padding: 18,
-    borderWidth: 2.5,
-    borderColor: theme.colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 14,
+    backgroundColor: theme.colors.invitationCard,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: theme.colors.cardBorder,
+    padding: 14,
+    shadowColor: theme.colors.shadow,
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
   },
-  guestCard: {
-    backgroundColor: '#EFF7F5',
-    borderColor: theme.colors.primary,
+  methodCardPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.99 }],
   },
   methodCardDisabled: {
     opacity: 0.7,
   },
   methodIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: theme.colors.primary,
+    width: 46,
+    height: 46,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  guestIcon: {
-    backgroundColor: '#0F7B6B',
-  },
-  googleIcon: {
-    backgroundColor: '#C5473A',
-  },
-  errorText: {
-    color: '#C5473A',
-    fontSize: 13,
-    textAlign: 'center',
-    marginTop: -8,
-    marginBottom: 16,
-    paddingHorizontal: 8,
+  methodCopy: {
+    flex: 1,
+    gap: 2,
   },
   methodLabel: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: theme.colors.primary,
-    fontFamily: 'Georgia',
-    flex: 1,
+    fontFamily: fonts.labelBold,
+    fontSize: 16,
+    color: theme.colors.ink,
   },
   methodDescription: {
-    color: '#5A6360',
+    fontFamily: fonts.body,
+    fontSize: 12.5,
+    color: theme.colors.mutedText,
+  },
+  errorText: {
+    color: theme.colors.pomegranateBright,
+    fontFamily: fonts.body,
     fontSize: 13,
-    fontFamily: 'Georgia',
-    flex: 2,
-    position: 'absolute',
-    bottom: 18,
-    left: 74,
+    marginBottom: 12,
   },
-  chevron: {
-    marginLeft: 'auto',
-  },
-  decorativeFooter: {
+  guestLink: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-    marginBottom: 28,
+    gap: 6,
+    paddingVertical: 14,
+    marginBottom: 8,
   },
-  geometricDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#C9A876',
-    opacity: 0.6,
+  guestText: {
+    fontFamily: fonts.labelBold,
+    fontSize: 14,
+    color: theme.colors.emerald,
   },
   footerRow: {
     flexDirection: 'row',
@@ -417,8 +229,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   footerText: {
-    color: '#5A6360',
-    fontSize: 13,
-    fontFamily: 'Georgia',
+    color: theme.colors.mutedText,
+    fontFamily: fonts.body,
+    fontSize: 12.5,
   },
 });
