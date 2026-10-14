@@ -19,8 +19,7 @@ import { savePushToken } from './database';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
+    shouldShowAlert: true,
     shouldPlaySound: false,
     shouldSetBadge: true,
   }),

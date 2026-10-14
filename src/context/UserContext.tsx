@@ -28,9 +28,22 @@ interface UserContextType {
 export const UserContext = createContext<UserContextType | undefined>(undefined);
 
 const PROFILE_COMPLETED_KEY_PREFIX = 'profile_completed:';
+// Persisted separately from everything else here because it has to survive
+// a full page reload with no session yet to hydrate from - Google sign-in
+// on web does a full-page redirect to Google and back, which wipes plain
+// React state, and there's a real window between "app just reopened" and
+// "the user's own public.users row exists yet" where the database has
+// nothing to hydrate from either (see the SIGNED_IN handler below).
+const SELECTED_GENDER_KEY = 'selected_gender';
 
 export function UserProvider({ children }: { children: ReactNode }) {
-  const [selectedGender, setSelectedGender] = useState<'male' | 'female' | null>(null);
+  const [selectedGender, setSelectedGenderState] = useState<'male' | 'female' | null>(null);
+  const setSelectedGender = (gender: 'male' | 'female') => {
+    setSelectedGenderState(gender);
+    AsyncStorage.setItem(SELECTED_GENDER_KEY, gender).catch((error) => {
+      console.warn('Failed to persist selected gender:', (error as Error)?.message);
+    });
+  };
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isGuest, setIsGuest] = useState(true);
   const [userEmail, setUserEmail] = useState<string | null>(null);
@@ -47,6 +60,21 @@ export function UserProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     selectedGenderRef.current = selectedGender;
   }, [selectedGender]);
+
+  // Restores selectedGender immediately on mount, independent of auth state -
+  // covers the app reloading with nothing else yet available to hydrate from
+  // (see SELECTED_GENDER_KEY's comment). initAuth()'s own DB-based hydration
+  // below still runs after this and takes precedence once it resolves, since
+  // the database is the authoritative value for a genuinely returning user.
+  useEffect(() => {
+    AsyncStorage.getItem(SELECTED_GENDER_KEY)
+      .then((stored) => {
+        if (stored === 'male' || stored === 'female') {
+          setSelectedGenderState(stored);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const updateProfileCompleted = async (value: boolean, targetUserId?: string | null) => {
     setProfileCompleted(value);
@@ -151,9 +179,40 @@ export function UserProvider({ children }: { children: ReactNode }) {
             // returning user's real gender_preference (see
             // ensureUserRowExists' own comment for why this can't reuse
             // ensureCurrentUserRecord's overwrite-upsert here).
-            ensureUserRowExists(selectedGenderRef.current || 'male').catch((error) => {
-              console.warn('ensureUserRowExists on sign-in failed:', (error as Error)?.message);
-            });
+            //
+            // Reads AsyncStorage directly here rather than trusting
+            // selectedGenderRef to already be hydrated - this fires from an
+            // independent effect with no guaranteed ordering against the
+            // AsyncStorage-hydration effect above, and a full-page OAuth
+            // redirect (Google sign-in on web) reloads the whole app between
+            // ChooseGenderScreen and this event firing, so relying on
+            // ordering here previously let a brand-new user's row get
+            // created with the 'male' fallback regardless of what they'd
+            // actually picked - and left selectedGender stuck null for the
+            // rest of that session, disabling gender filtering entirely.
+            (async () => {
+              let genderForNewRow = selectedGenderRef.current;
+              if (!genderForNewRow) {
+                try {
+                  const stored = await AsyncStorage.getItem(SELECTED_GENDER_KEY);
+                  if (stored === 'male' || stored === 'female') {
+                    genderForNewRow = stored;
+                  }
+                } catch {
+                  // fall through to the 'male' default below
+                }
+              }
+
+              if (!selectedGenderRef.current && genderForNewRow) {
+                setSelectedGenderState(genderForNewRow);
+              }
+
+              try {
+                await ensureUserRowExists(genderForNewRow || 'male');
+              } catch (error) {
+                console.warn('ensureUserRowExists on sign-in failed:', (error as Error)?.message);
+              }
+            })();
           }
           hydrateProfileCompleted(session.user.id);
         }

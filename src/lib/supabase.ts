@@ -1,3 +1,7 @@
+// React Native's built-in URL implementation doesn't implement the full URL
+// spec (e.g. `.protocol`), which @supabase/supabase-js relies on internally -
+// must be imported before `createClient` runs, so it stays first.
+import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
