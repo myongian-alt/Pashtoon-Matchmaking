@@ -12,11 +12,17 @@
   },
   "jest": {
     "preset": "jest-expo",
-    "testPathIgnorePatterns": ["/node_modules/", "/android/"]
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/android/"
+    ]
   },
   "dependencies": {
-    "@expo-google-fonts/fraunces": "^0.4.1",
-    "@expo-google-fonts/karla": "^0.4.2",
+    "@expo-google-fonts/amiri": "^0.4.1",
+    "@expo-google-fonts/cormorant-garamond": "^0.4.1",
+    "@expo-google-fonts/dm-serif-display": "^0.4.2",
+    "@expo-google-fonts/noto-naskh-arabic": "^0.4.5",
+    "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
     "@expo/vector-icons": "^13.0.0",
     "@react-native-async-storage/async-storage": "^3.1.1",
     "@react-navigation/bottom-tabs": "^7.18.13",
@@ -39,6 +45,7 @@
     "react-native-gesture-handler": "^3.1.0",
     "react-native-safe-area-context": "^4.14.1",
     "react-native-screens": "^4.26.2",
+    "react-native-svg": "15.15.4",
     "react-native-url-polyfill": "^4.0.0",
     "react-native-web": "^0.21.2"
   },

@@ -3,7 +3,11 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { theme } from '../theme';
+import { fonts } from '../theme/typography';
 
+// Full legal text, unchanged — still shown in full via "Read the full
+// declaration", just no longer the default view. The four PLEDGES below are
+// a condensed summary of the same commitments, not a replacement for them.
 const DECLARATIONS = [
   'I am joining this platform solely for the purpose of seeking a genuine marriage partner. I understand that this is a matrimonial platform, not a dating or casual relationship platform.',
   'I will use this platform honestly, respectfully, and with sincere intentions. I will not engage in harassment, inappropriate conversations, flirting for entertainment, or any behaviour inconsistent with the purpose of marriage.',
@@ -15,9 +19,22 @@ const DECLARATIONS = [
   'I understand that the platform reserves the right to review reports of misconduct and take appropriate action to protect the community.',
 ];
 
+const PLEDGES: {
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  color: string;
+  title: string;
+  text: string;
+}[] = [
+  { icon: 'heart-outline', color: theme.colors.emerald, title: 'Sincere intention', text: "I'm here only to find a marriage partner." },
+  { icon: 'hand-heart-outline', color: theme.colors.gold, title: 'Respect & haya', text: 'Decent words, no harassment — honouring Pashtunwali and Islamic adab.' },
+  { icon: 'lock-outline', color: theme.colors.pomegranateDeep, title: 'Privacy is amanah', text: "I won't screenshot, share or record anyone's photos or chats." },
+  { icon: 'shield-check-outline', color: theme.colors.lapis, title: 'Truthful profile', text: 'Real name, age and marital status. No fake accounts.' },
+];
+
 export default function DeclarationScreen() {
   const navigation = useNavigation();
   const [agreed, setAgreed] = useState(false);
+  const [showFull, setShowFull] = useState(false);
 
   const handleContinue = () => {
     if (agreed) {
@@ -34,55 +51,66 @@ export default function DeclarationScreen() {
           accessibilityRole="button"
           accessibilityLabel="Go back"
         >
-          <MaterialCommunityIcons name="chevron-left" size={26} color={theme.colors.primary} />
+          <MaterialCommunityIcons name="chevron-left" size={26} color={theme.colors.emerald} />
         </Pressable>
 
-        <View style={styles.headerIconBadge}>
-          <MaterialCommunityIcons name="shield-check-outline" size={30} color={theme.colors.primary} />
-        </View>
-
-        <Text style={styles.title}>User Declaration &{'\n'}Community Agreement</Text>
-        <Text style={styles.lead}>By creating an account and using this platform, I declare that:</Text>
+        <Text style={styles.eyebrow}>Step 1 of 4 · Our Amanah</Text>
+        <Text style={styles.title}>
+          The Khpalwali <Text style={styles.titleItalic}>Pledge</Text>
+        </Text>
+        <Text style={styles.lead}>A place for nikah, not dating. Four promises keep it safe for every family.</Text>
 
         <View style={styles.list}>
-          {DECLARATIONS.map((text, index) => (
-            <View key={index} style={styles.listRow}>
-              <View style={styles.numberBadge}>
-                <Text style={styles.numberBadgeText}>{index + 1}</Text>
+          {PLEDGES.map((pledge) => (
+            <View key={pledge.title} style={styles.pledgeCard}>
+              <View style={[styles.pledgeIconBadge, { backgroundColor: `${pledge.color}1a` }]}>
+                <MaterialCommunityIcons name={pledge.icon} size={22} color={pledge.color} />
               </View>
-              <Text style={styles.listText}>{text}</Text>
+              <View style={styles.pledgeCopy}>
+                <Text style={[styles.pledgeTitle, { color: pledge.color }]}>{pledge.title}</Text>
+                <Text style={styles.pledgeText}>{pledge.text}</Text>
+              </View>
             </View>
           ))}
         </View>
 
-        <View style={styles.ackCard}>
-          <Text style={styles.ackTitle}>Acknowledgement</Text>
-          <Text style={styles.ackText}>
-            By checking the box below and continuing, I confirm that I have read, understood, and agree to comply
-            with this Declaration and Community Agreement.
+        <Pressable
+          style={styles.expandRow}
+          onPress={() => setShowFull((prev) => !prev)}
+          accessibilityRole="button"
+          accessibilityLabel={showFull ? 'Hide the full declaration' : 'Read the full declaration, 8 points'}
+        >
+          <Text style={styles.expandText}>
+            {showFull ? 'Hide the full declaration' : 'Read the full declaration (8 points)'}
           </Text>
-        </View>
+          <MaterialCommunityIcons name={showFull ? 'chevron-up' : 'chevron-down'} size={18} color={theme.colors.emerald} />
+        </Pressable>
+
+        {showFull && (
+          <View style={styles.fullList}>
+            {DECLARATIONS.map((text, index) => (
+              <View key={index} style={styles.listRow}>
+                <View style={styles.numberBadge}>
+                  <Text style={styles.numberBadgeText}>{index + 1}</Text>
+                </View>
+                <Text style={styles.listText}>{text}</Text>
+              </View>
+            ))}
+          </View>
+        )}
 
         <Pressable
           style={styles.checkboxRow}
           onPress={() => setAgreed((prev) => !prev)}
           accessibilityRole="checkbox"
           accessibilityState={{ checked: agreed }}
-          accessibilityLabel="I have read, understood, and agree to comply with this Declaration and Community Agreement"
+          accessibilityLabel="I accept this pledge. Violations may lead to suspension."
         >
           <View style={[styles.checkbox, agreed && styles.checkboxChecked]}>
             {agreed && <MaterialCommunityIcons name="check" size={16} color="#fff" />}
           </View>
-          <Text style={styles.checkboxLabel}>
-            I have read, understood, and agree to comply with this Declaration and Community Agreement.
-          </Text>
+          <Text style={styles.checkboxLabel}>I accept this pledge. Violations may lead to suspension.</Text>
         </Pressable>
-
-        <Text style={styles.warningText}>
-          I understand that any violation of these terms may result in the immediate suspension or permanent
-          deletion of my account without prior notice, at the sole discretion of the platform administrators, in
-          order to maintain a safe, respectful, and trustworthy matrimonial community.
-        </Text>
       </ScrollView>
 
       <View style={styles.footer}>
@@ -94,9 +122,7 @@ export default function DeclarationScreen() {
           accessibilityLabel="Continue"
           accessibilityState={{ disabled: !agreed }}
         >
-          <Text style={[styles.continueText, !agreed && styles.continueTextDisabled]}>
-            I Agree &amp; Continue
-          </Text>
+          <Text style={[styles.continueText, !agreed && styles.continueTextDisabled]}>I Accept & Continue</Text>
         </Pressable>
       </View>
     </View>
@@ -106,7 +132,7 @@ export default function DeclarationScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.colors.ivory,
   },
   scrollContent: {
     paddingHorizontal: 22,
@@ -117,37 +143,88 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 13,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.invitationCard,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 18,
   },
-  headerIconBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    backgroundColor: theme.colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
+  eyebrow: {
+    fontFamily: fonts.labelBold,
+    fontSize: 12,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: theme.colors.gold,
+    marginBottom: 8,
   },
   title: {
-    fontFamily: 'Fraunces_600SemiBold',
-    fontSize: 26,
-    lineHeight: 32,
-    color: theme.colors.text,
-    marginBottom: 12,
+    fontFamily: fonts.heading,
+    fontSize: 28,
+    lineHeight: 34,
+    color: theme.colors.ink,
+    marginBottom: 10,
+  },
+  titleItalic: {
+    fontFamily: fonts.bodyItalic,
   },
   lead: {
-    fontFamily: 'Karla_400Regular',
+    fontFamily: fonts.body,
     fontSize: 15,
     lineHeight: 22,
-    color: theme.colors.textSecondary,
-    marginBottom: 20,
+    color: theme.colors.mutedText,
+    marginBottom: 22,
   },
   list: {
+    gap: 12,
+    marginBottom: 14,
+  },
+  pledgeCard: {
+    flexDirection: 'row',
+    gap: 14,
+    backgroundColor: theme.colors.invitationCard,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: theme.colors.cardBorder,
+    padding: 16,
+    alignItems: 'center',
+  },
+  pledgeIconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pledgeCopy: {
+    flex: 1,
+    gap: 3,
+  },
+  pledgeTitle: {
+    fontFamily: fonts.labelBold,
+    fontSize: 15,
+  },
+  pledgeText: {
+    fontFamily: fonts.body,
+    fontSize: 13.5,
+    lineHeight: 19,
+    color: theme.colors.bodyText,
+  },
+  expandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    marginBottom: 14,
+  },
+  expandText: {
+    fontFamily: fonts.labelBold,
+    fontSize: 13.5,
+    color: theme.colors.emerald,
+  },
+  fullList: {
     gap: 16,
-    marginBottom: 24,
+    marginBottom: 20,
+    paddingTop: 4,
   },
   listRow: {
     flexDirection: 'row',
@@ -157,112 +234,86 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: theme.colors.primarySoft,
+    backgroundColor: theme.colors.emeraldTint,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 1,
   },
   numberBadgeText: {
-    fontFamily: 'Karla_700Bold',
+    fontFamily: fonts.labelBold,
     fontSize: 12,
-    color: theme.colors.primary,
+    color: theme.colors.emerald,
   },
   listText: {
     flex: 1,
-    fontFamily: 'Karla_400Regular',
-    fontSize: 14.5,
-    lineHeight: 21,
-    color: theme.colors.text,
-  },
-  ackCard: {
-    backgroundColor: theme.colors.accentSoft,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(140, 102, 54, 0.25)',
-    padding: 18,
-    marginBottom: 18,
-  },
-  ackTitle: {
-    fontFamily: 'Fraunces_600SemiBold',
-    fontSize: 17,
-    color: theme.colors.text,
-    marginBottom: 8,
-  },
-  ackText: {
-    fontFamily: 'Karla_400Regular',
+    fontFamily: fonts.body,
     fontSize: 14,
     lineHeight: 20,
-    color: theme.colors.textSecondary,
+    color: theme.colors.ink,
   },
   checkboxRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: theme.colors.goldPale + '55',
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.invitationGoldLine,
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 8,
   },
   checkbox: {
     width: 24,
     height: 24,
     borderRadius: 7,
     borderWidth: 2,
-    borderColor: theme.colors.border,
+    borderColor: theme.colors.inputBorder,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 1,
   },
   checkboxChecked: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.emerald,
+    borderColor: theme.colors.emerald,
   },
   checkboxLabel: {
     flex: 1,
-    fontFamily: 'Karla_600SemiBold',
+    fontFamily: fonts.bodyMedium,
     fontSize: 14,
     lineHeight: 20,
-    color: theme.colors.text,
-  },
-  warningText: {
-    fontFamily: 'Karla_400Regular',
-    fontSize: 12.5,
-    lineHeight: 19,
-    color: theme.colors.danger,
+    color: theme.colors.ink,
   },
   footer: {
     paddingHorizontal: 22,
     paddingTop: 14,
     paddingBottom: 20,
     borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    backgroundColor: theme.colors.background,
+    borderTopColor: theme.colors.cardBorder,
+    backgroundColor: theme.colors.ivory,
   },
   continueButton: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.emerald,
     borderRadius: 18,
     paddingVertical: 17,
     alignItems: 'center',
-    shadowColor: theme.colors.primary,
+    shadowColor: theme.colors.emerald,
     shadowOpacity: 0.3,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 10 },
     elevation: 4,
   },
   continueButtonDisabled: {
-    backgroundColor: theme.colors.border,
+    backgroundColor: theme.colors.cardBorder,
     shadowOpacity: 0,
     elevation: 0,
   },
   continueText: {
-    fontFamily: 'Karla_700Bold',
+    fontFamily: fonts.labelBold,
     fontSize: 16.5,
     color: '#fff',
     letterSpacing: 0.2,
   },
   continueTextDisabled: {
-    color: theme.colors.muted,
+    color: theme.colors.faintText,
   },
 });
