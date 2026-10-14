@@ -7,8 +7,9 @@ import { theme } from '../theme';
 import { fonts } from '../theme/typography';
 import { useUser } from '../context/UserContext';
 import { RootStackParamList } from '../navigation/AppNavigator';
-import { getDiscoveryProfiles, getMatches, likeProfile, removeLike, getShortlistedProfiles, getWhoLikedMe, getConversationWithUser, EDUCATION_LEVEL_DISPLAY } from '../lib/database';
+import { getDiscoveryProfiles, getMatches, likeProfile, removeLike, getShortlistedProfiles, getWhoLikedMe, getConversationWithUser, EDUCATION_LEVEL_DISPLAY, PRAYER_FREQUENCY_DISPLAY, cmToHeightLabel } from '../lib/database';
 import { ModernMuslimAvatar } from '../components/common/ModernMuslimAvatar';
+import { VerifiedBadge } from '../components/common/VerifiedBadge';
 import { LoginPromptModal } from '../components/common/LoginPromptModal';
 import { SmartRecommendationsStrip } from '../components/ai/SmartRecommendationsStrip';
 import {
@@ -32,6 +33,10 @@ type ProfileListItem = {
   aboutMe?: string;
   compatibility?: number;
   photoCount?: number;
+  isVerified?: boolean;
+  height?: string;
+  prayerFrequency?: string;
+  skinColour?: string;
   source: 'discover' | 'matches';
 };
 
@@ -198,6 +203,10 @@ function toListItemFromProfile(row: any, source: 'discover' | 'matches'): Profil
     aboutMe: row.about_me || '',
     compatibility: row.match_score || row.profile_strength_percentage || 80,
     photoCount: (row.profile_photos || []).length,
+    isVerified: Boolean(row.is_verified),
+    height: cmToHeightLabel(row.height_cm) || undefined,
+    prayerFrequency: PRAYER_FREQUENCY_DISPLAY[row.prayer_frequency] || undefined,
+    skinColour: row.skin_colour || undefined,
     source,
   };
 }
@@ -624,6 +633,7 @@ export default function ProfileDiscoveryScreen() {
                 <Text style={styles.matchBadgeText}>Matched</Text>
               </View>
               <Text style={styles.profileName} numberOfLines={1}>{item.name}</Text>
+              {item.isVerified && <VerifiedBadge />}
               <View style={styles.ageLocationRow}>
                 <MaterialCommunityIcons name="cake-variant" size={14} color={theme.colors.gold} />
                 <Text style={styles.infoText}>{item.age ? `${item.age} years` : 'Age not set'}</Text>
@@ -764,6 +774,7 @@ export default function ProfileDiscoveryScreen() {
           <Text style={styles.gridName} numberOfLines={1}>
             {item.name}{item.age ? `, ${item.age}` : ''}
           </Text>
+          {item.isVerified && <VerifiedBadge />}
           {item.profession && item.profession !== 'Not set' && (
             <View style={styles.gridInfoRow}>
               <MaterialCommunityIcons name="briefcase" size={12} color={theme.colors.emerald} />

@@ -220,7 +220,7 @@ const PRAYER_FREQUENCY_MAP: Record<string, string> = {
   '5 times daily': '5_times_daily', Sometimes: 'sometimes', Never: 'never',
   // '3-4 times daily'/'1-2 times daily'/'Rarely' have no matching DB enum value.
 };
-const PRAYER_FREQUENCY_DISPLAY = invert(PRAYER_FREQUENCY_MAP);
+export const PRAYER_FREQUENCY_DISPLAY = invert(PRAYER_FREQUENCY_MAP);
 
 const RELIGION_IMPORTANCE_MAP: Record<string, string> = {
   'Very Important': 'very_important', Important: 'somewhat', Moderate: 'somewhat', 'Not Important': 'not_important',
@@ -849,6 +849,9 @@ export async function getDiscoveryProfiles(
       about_me,
       profile_strength_percentage,
       is_verified,
+      height_cm,
+      prayer_frequency,
+      skin_colour,
       profile_photos (
         id,
         photo_url,
@@ -1241,6 +1244,10 @@ export async function getMatches(userId: string) {
         profession,
         about_me,
         profile_strength_percentage,
+        is_verified,
+        height_cm,
+        prayer_frequency,
+        skin_colour,
         profile_photos (
           id,
           photo_url,

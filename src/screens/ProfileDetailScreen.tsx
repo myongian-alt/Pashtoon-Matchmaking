@@ -2,10 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../theme';
+import { fonts } from '../theme/typography';
 import { useUser } from '../context/UserContext';
 import { LoginPromptModal } from '../components/common/LoginPromptModal';
 import { ModernMuslimAvatar } from '../components/common/ModernMuslimAvatar';
 import { AppBottomNav } from '../components/common/AppBottomNav';
+import { ArchFrame } from '../components/common/ArchFrame';
+import { MatchScoreStar } from '../components/common/StarBadge';
+import { VerifiedBadge } from '../components/common/VerifiedBadge';
 import {
   sendConnectionRequest,
   blockUser,
@@ -27,7 +31,7 @@ const REPORT_TYPES: { key: ReportType; label: string }[] = [
 
 export function ProfileDetailScreen({ route, navigation }: any) {
   const profile = route.params?.profile;
-  const { isGuest, paymentCompleted, userId } = useUser();
+  const { isGuest, paymentCompleted, userId, profileCompleted } = useUser();
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [sendingInterest, setSendingInterest] = useState(false);
   const [interestSent, setInterestSent] = useState(false);
@@ -185,7 +189,11 @@ export function ProfileDetailScreen({ route, navigation }: any) {
     }
 
     setContactRequestSent(true);
-    showBanner('success', 'Request sent - our admin team will reach out to you soon.');
+    // Honest about what actually happens: a real Resend-based email goes to
+    // the admin team (request-contact-details Edge Function) - there is no
+    // WhatsApp Business API integration in this environment, so this must
+    // not promise a WhatsApp message it can't deliver.
+    showBanner('success', "Rishta request sent - we'll email you with next steps soon.");
   };
 
   // A confirm-style Alert.alert (Cancel/Block buttons with an onPress
@@ -266,16 +274,20 @@ export function ProfileDetailScreen({ route, navigation }: any) {
       ) : null}
 
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Profile Image with Gender Badge */}
+        {/* Profile Image with Gender Badge + Match Score - match percentage
+            shown first/prominently, right under the photo, before any other
+            detail. */}
         <View style={styles.imageContainer}>
           <View style={styles.imageFrame}>
-            {profileImageSource ? (
-              <Image source={profileImageSource} style={styles.image} resizeMode="cover" />
-            ) : (
-              <View style={[styles.image, styles.emptyImage]}>
-                <ModernMuslimAvatar gender={profile?.gender === 'female' ? 'female' : 'male'} size={90} />
-              </View>
-            )}
+            <ArchFrame width={160} height={160} borderColor={theme.colors.gold} borderWidth={3}>
+              {profileImageSource ? (
+                <Image source={profileImageSource} style={styles.image} resizeMode="cover" />
+              ) : (
+                <View style={[styles.image, styles.emptyImage]}>
+                  <ModernMuslimAvatar gender={profile?.gender === 'female' ? 'female' : 'male'} size={90} />
+                </View>
+              )}
+            </ArchFrame>
             <View style={styles.genderBadge}>
               {profile.gender === 'male' ? (
                 <MaterialCommunityIcons name="human-male" size={18} color="#fff" />
@@ -283,12 +295,37 @@ export function ProfileDetailScreen({ route, navigation }: any) {
                 <MaterialCommunityIcons name="human-female" size={18} color="#fff" />
               )}
             </View>
+
+            {!isSelfProfile && (
+              <View style={styles.matchScoreFloating}>
+                {profileCompleted ? (
+                  <MatchScoreStar percent={profile?.compatibility || 0} size={64} />
+                ) : (
+                  <Pressable onPress={handleEditMyProfile}>
+                    <MatchScoreStar percent={0} size={64} />
+                  </Pressable>
+                )}
+              </View>
+            )}
           </View>
         </View>
 
+        {!isSelfProfile && !profileCompleted && (
+          <Pressable style={styles.completeProfileBanner} onPress={handleEditMyProfile}>
+            <MaterialCommunityIcons name="progress-question" size={18} color={theme.colors.emerald} />
+            <Text style={styles.completeProfileBannerText}>
+              Complete your profile to see your exact match percentage
+            </Text>
+            <MaterialCommunityIcons name="chevron-right" size={18} color={theme.colors.emerald} />
+          </Pressable>
+        )}
+
         {/* Header Info with Marital Status */}
         <View style={styles.headerInfo}>
-          <Text style={styles.name}>{profile?.name || 'Your Profile'}</Text>
+          <View style={styles.nameRow}>
+            <Text style={styles.name}>{profile?.name || 'Your Profile'}</Text>
+            {profile?.isVerified && <VerifiedBadge size="large" />}
+          </View>
           <Text style={styles.subtitle}>{profile?.age ? `${profile.age} years old` : 'Age not provided'}</Text>
         </View>
 
@@ -340,8 +377,29 @@ export function ProfileDetailScreen({ route, navigation }: any) {
               <Text style={styles.detailLabel}>Body Type</Text>
               <Text style={styles.detailValue}>{profile?.bodyType || 'Not set'}</Text>
             </View>
+            <View style={styles.detailCard}>
+              <Text style={styles.detailLabel}>Skin Tone</Text>
+              <Text style={styles.detailValue}>{profile?.skinColour || 'Not set'}</Text>
+            </View>
           </View>
         </View>
+
+        {/* Faith & Lifestyle - newly available now that the full profile
+            form actually persists these fields (see database.ts). */}
+        {profile?.prayerFrequency ? (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <MaterialCommunityIcons name="mosque" size={20} color={theme.colors.primary} />
+              <Text style={styles.sectionTitle}>Faith</Text>
+            </View>
+            <View style={styles.pillRow}>
+              <View style={styles.pill}>
+                <MaterialCommunityIcons name="star-crescent" size={14} color={theme.colors.gold} />
+                <Text style={styles.pillText}>Prayers: {profile.prayerFrequency}</Text>
+              </View>
+            </View>
+          </View>
+        ) : null}
 
         {/* Education & Career */}
         <View style={styles.section}>
@@ -416,7 +474,11 @@ export function ProfileDetailScreen({ route, navigation }: any) {
           </View>
         </View>
 
-        {/* Contact Details Button */}
+        {/* Send Rishta Request Button - golden tab with a red/heart accent,
+            per the brief. Admin gets a real email (request-contact-details
+            Edge Function); the user is told about email follow-up only -
+            no WhatsApp integration exists in this environment, so the copy
+            must not promise one. */}
         {!isSelfProfile ? (
           <Pressable
             style={[styles.contactButton, (requestingContact || contactRequestSent) && styles.actionButtonDisabled]}
@@ -424,19 +486,24 @@ export function ProfileDetailScreen({ route, navigation }: any) {
             disabled={requestingContact || contactRequestSent}
           >
             <MaterialCommunityIcons
-              name={contactRequestSent ? 'check-circle-outline' : 'email-fast-outline'}
+              name={contactRequestSent ? 'check-circle' : 'heart'}
               size={20}
-              color="#fff"
+              color={theme.colors.pomegranateBright}
               style={{ marginRight: 8 }}
             />
             <Text style={styles.contactButtonLabel}>
               {requestingContact
                 ? 'Sending request...'
                 : contactRequestSent
-                ? 'Request Sent'
-                : 'Request Contact Details'}
+                ? 'Rishta Request Sent'
+                : 'Send Rishta Request'}
             </Text>
           </Pressable>
+        ) : null}
+        {!isSelfProfile && contactRequestSent ? (
+          <Text style={styles.contactFollowupText}>
+            We'll review and email you with next steps soon.
+          </Text>
         ) : null}
 
         {/* Send Message Button */}
@@ -579,7 +646,7 @@ export function ProfileDetailScreen({ route, navigation }: any) {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#F7E1C9',
+    backgroundColor: theme.colors.ivory,
   },
   header: {
     flexDirection: 'row',
@@ -587,9 +654,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.invitationCard,
     borderBottomWidth: 1,
-    borderBottomColor: '#E8DDD0',
+    borderBottomColor: theme.colors.cardBorder,
   },
   banner: {
     flexDirection: 'row',
@@ -599,30 +666,29 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   bannerSuccess: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.emerald,
   },
   bannerError: {
-    backgroundColor: '#C0392B',
+    backgroundColor: theme.colors.pomegranateBright,
   },
   bannerText: {
     flex: 1,
     color: '#fff',
+    fontFamily: fonts.bodyMedium,
     fontSize: 13,
-    fontWeight: '700',
   },
   backButton: {
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#FFF5E5',
+    backgroundColor: theme.colors.sand,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: '700',
-    color: theme.colors.text,
-    fontFamily: 'Georgia',
+    color: theme.colors.ink,
+    fontFamily: fonts.heading,
   },
   spacer: {
     width: 44,
@@ -643,12 +709,12 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
-    borderRadius: 22,
-    backgroundColor: '#E8DDD0',
   },
   emptyImage: {
     alignItems: 'center',
     justifyContent: 'center',
+    width: '100%',
+    height: '100%',
   },
   genderBadge: {
     position: 'absolute',
@@ -661,24 +727,52 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#FFFDF7',
+    borderColor: theme.colors.invitationCard,
+  },
+  matchScoreFloating: {
+    position: 'absolute',
+    bottom: -18,
+    left: -10,
+  },
+  completeProfileBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: theme.colors.emeraldTint,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.emerald,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 16,
+  },
+  completeProfileBannerText: {
+    flex: 1,
+    color: theme.colors.emerald,
+    fontFamily: fonts.bodyMedium,
+    fontSize: 12.5,
   },
   headerInfo: {
     alignItems: 'center',
     marginBottom: 16,
+    marginTop: 8,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
   },
   name: {
-    color: theme.colors.text,
+    color: theme.colors.ink,
     fontSize: 24,
-    fontWeight: '800',
-    fontFamily: 'Georgia',
-    marginBottom: 4,
+    fontFamily: fonts.nameItalic,
     textAlign: 'center',
   },
   subtitle: {
-    color: theme.colors.textSecondary,
+    color: theme.colors.mutedText,
     fontSize: 15,
-    fontFamily: 'Georgia',
+    fontFamily: fonts.body,
     textAlign: 'center',
   },
   infoGrid: {
@@ -688,27 +782,25 @@ const styles = StyleSheet.create({
   },
   infoCard: {
     flex: 1,
-    backgroundColor: '#FFF5E5',
+    backgroundColor: theme.colors.sand,
     borderRadius: 14,
     padding: 14,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#F0E0D0',
+    borderColor: theme.colors.cardBorder,
   },
   infoLabel: {
     fontSize: 12,
-    color: theme.colors.textSecondary,
-    fontWeight: '600',
+    color: theme.colors.mutedText,
     marginTop: 6,
-    fontFamily: 'Georgia',
+    fontFamily: fonts.bodyMedium,
   },
   infoValue: {
     fontSize: 13,
-    color: theme.colors.text,
-    fontWeight: '700',
+    color: theme.colors.ink,
     marginTop: 4,
     textAlign: 'center',
-    fontFamily: 'Georgia',
+    fontFamily: fonts.labelBold,
   },
   section: {
     marginBottom: 24,
@@ -720,43 +812,40 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sectionTitle: {
-    color: theme.colors.text,
+    color: theme.colors.ink,
     fontSize: 18,
-    fontWeight: '800',
-    fontFamily: 'Georgia',
+    fontFamily: fonts.labelBold,
   },
   aboutText: {
-    color: theme.colors.textSecondary,
+    color: theme.colors.bodyText,
     fontSize: 14,
     lineHeight: 20,
-    fontFamily: 'Georgia',
+    fontFamily: fonts.body,
   },
   detailCard: {
     flex: 1,
-    backgroundColor: '#FFF5E5',
+    backgroundColor: theme.colors.sand,
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#F0E0D0',
+    borderColor: theme.colors.cardBorder,
   },
   detailLabel: {
     fontSize: 12,
-    color: theme.colors.textSecondary,
-    fontWeight: '600',
+    color: theme.colors.mutedText,
     marginBottom: 4,
-    fontFamily: 'Georgia',
+    fontFamily: fonts.bodyMedium,
   },
   detailValue: {
     fontSize: 14,
-    color: theme.colors.text,
-    fontWeight: '700',
-    fontFamily: 'Georgia',
+    color: theme.colors.ink,
+    fontFamily: fonts.labelBold,
   },
   detailText: {
-    color: theme.colors.textSecondary,
+    color: theme.colors.bodyText,
     fontSize: 14,
     lineHeight: 20,
-    fontFamily: 'Georgia',
+    fontFamily: fonts.body,
   },
   galleryRow: {
     flexDirection: 'row',
@@ -769,8 +858,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2,
     borderStyle: 'dashed',
-    borderColor: theme.colors.primary,
-    backgroundColor: '#FFF5E5',
+    borderColor: theme.colors.emerald,
+    backgroundColor: theme.colors.sand,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
@@ -785,28 +874,59 @@ const styles = StyleSheet.create({
   },
   galleryText: {
     fontSize: 12,
-    color: theme.colors.primary,
-    fontWeight: '600',
+    color: theme.colors.emerald,
     marginTop: 6,
-    fontFamily: 'Georgia',
+    fontFamily: fonts.bodyMedium,
   },
   contactButton: {
-    backgroundColor: '#D4AF37',
+    backgroundColor: theme.colors.gold,
     borderRadius: 16,
     paddingVertical: 14,
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#C9A300',
+    marginBottom: 6,
+    borderWidth: 2,
+    borderColor: theme.colors.pomegranateBright,
+    shadowColor: theme.colors.gold,
+    shadowOpacity: 0.35,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 12,
+    elevation: 4,
   },
   contactButtonLabel: {
-    color: '#fff',
-    fontWeight: '800',
+    color: theme.colors.pomegranateDeep,
+    fontFamily: fonts.labelBold,
     fontSize: 16,
-    fontFamily: 'Georgia',
+  },
+  contactFollowupText: {
+    color: theme.colors.mutedText,
+    fontFamily: fonts.body,
+    fontSize: 12.5,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  pillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: theme.colors.sand,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: theme.colors.cardBorder,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  pillText: {
+    color: theme.colors.ink,
+    fontFamily: fonts.bodyMedium,
+    fontSize: 12.5,
   },
   actionButton: {
     backgroundColor: theme.colors.primary,
@@ -824,9 +944,8 @@ const styles = StyleSheet.create({
   },
   actionLabel: {
     color: '#fff',
-    fontWeight: '800',
     fontSize: 16,
-    fontFamily: 'Georgia',
+    fontFamily: fonts.labelBold,
   },
   safetyRow: {
     flexDirection: 'row',
@@ -843,16 +962,16 @@ const styles = StyleSheet.create({
   },
   safetyButtonText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: theme.colors.textSecondary,
+    fontFamily: fonts.bodyMedium,
+    color: theme.colors.mutedText,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(12, 12, 12, 0.45)',
+    backgroundColor: 'rgba(31, 26, 23, 0.45)',
     justifyContent: 'flex-end',
   },
   modalSheet: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.invitationCard,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     padding: 24,
@@ -860,10 +979,9 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '800',
-    color: theme.colors.text,
+    color: theme.colors.ink,
     marginBottom: 14,
-    fontFamily: 'Georgia',
+    fontFamily: fonts.labelBold,
   },
   blockConfirmText: {
     fontSize: 14,
@@ -909,8 +1027,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#E3D4C4',
-    backgroundColor: '#FFF5E5',
+    borderColor: theme.colors.cardBorder,
+    backgroundColor: theme.colors.sand,
   },
   reportTypeChipActive: {
     backgroundColor: theme.colors.primary,
@@ -926,7 +1044,7 @@ const styles = StyleSheet.create({
   },
   reportInput: {
     borderWidth: 1,
-    borderColor: '#E3D4C4',
+    borderColor: theme.colors.cardBorder,
     borderRadius: 12,
     padding: 14,
     fontSize: 14,
@@ -945,7 +1063,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E3D4C4',
+    borderColor: theme.colors.cardBorder,
   },
   modalCancelText: {
     color: theme.colors.textSecondary,

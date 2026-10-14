@@ -69,6 +69,10 @@ export type RootStackParamList = {
     image?: any;
     galleryPhotos?: string[];
     compatibility?: number;
+    photoCount?: number;
+    isVerified?: boolean;
+    prayerFrequency?: string;
+    skinColour?: string;
     isSelfProfile?: boolean;
   } };
 };

@@ -31,6 +31,9 @@ export function buildSelfProfileFromForm(
     personality: formData.personality || '',
     image: formData.profilePhoto || null,
     galleryPhotos: Array.isArray(formData.galleryPhotos) ? formData.galleryPhotos : [],
+    isVerified: Boolean(formData.isVerified),
+    prayerFrequency: formData.prayerFrequency || undefined,
+    skinColour: formData.skinColour || undefined,
     isSelfProfile: true,
   };
 }
