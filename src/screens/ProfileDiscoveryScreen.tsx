@@ -614,13 +614,13 @@ export default function ProfileDiscoveryScreen() {
               </View>
               <Text style={styles.profileName} numberOfLines={1}>{item.name}</Text>
               <View style={styles.ageLocationRow}>
-                <MaterialCommunityIcons name="cake-variant" size={14} color="#C9A876" />
+                <MaterialCommunityIcons name="cake-variant" size={14} color={theme.colors.gold} />
                 <Text style={styles.infoText}>{item.age ? `${item.age} years` : 'Age not set'}</Text>
-                <MaterialCommunityIcons name="map-marker" size={14} color="#C9A876" style={{ marginLeft: 10 }} />
+                <MaterialCommunityIcons name="map-marker" size={14} color={theme.colors.gold} style={{ marginLeft: 10 }} />
                 <Text style={styles.infoText} numberOfLines={1}>{item.location}</Text>
               </View>
               <View style={styles.maritalStatusRow}>
-                <MaterialCommunityIcons name="ring" size={13} color="#D4AF37" />
+                <MaterialCommunityIcons name="ring" size={13} color={theme.colors.gold} />
                 <Text style={styles.maritalStatusText}>{item.maritalStatus}</Text>
               </View>
             </View>
@@ -691,7 +691,7 @@ export default function ProfileDiscoveryScreen() {
             <MaterialCommunityIcons
               name={isShortlisted ? 'bookmark' : 'bookmark-outline'}
               size={16}
-              color={isShortlisted ? '#D4AF37' : '#fff'}
+              color={isShortlisted ? theme.colors.gold : '#fff'}
             />
           </Pressable>
 
@@ -716,7 +716,7 @@ export default function ProfileDiscoveryScreen() {
               <MaterialCommunityIcons
                 name={isLiked ? 'heart' : 'heart-outline'}
                 size={15}
-                color={isLiked ? '#E74C3C' : '#fff'}
+                color={isLiked ? theme.colors.pomegranateBright : '#fff'}
               />
             </Pressable>
           </View>
@@ -727,11 +727,11 @@ export default function ProfileDiscoveryScreen() {
             {item.name}{item.age ? `, ${item.age}` : ''}
           </Text>
           <View style={styles.gridInfoRow}>
-            <MaterialCommunityIcons name="map-marker" size={12} color="#C9A876" />
+            <MaterialCommunityIcons name="map-marker" size={12} color={theme.colors.gold} />
             <Text style={styles.gridInfoText} numberOfLines={1}>{item.location}</Text>
           </View>
           <View style={styles.gridInfoRow}>
-            <MaterialCommunityIcons name="ring" size={12} color="#D4AF37" />
+            <MaterialCommunityIcons name="ring" size={12} color={theme.colors.gold} />
             <Text style={styles.gridMaritalText} numberOfLines={1}>{item.maritalStatus}</Text>
           </View>
           {educationProfession ? (
@@ -850,7 +850,7 @@ export default function ProfileDiscoveryScreen() {
                 value={draftFilters.location}
                 onChangeText={(value) => setDraftFilters((prev) => ({ ...prev, location: value }))}
                 placeholder="City or country"
-                placeholderTextColor="#9A8F84"
+                placeholderTextColor={theme.colors.mutedText}
               />
             </View>
 
@@ -861,7 +861,7 @@ export default function ProfileDiscoveryScreen() {
                 value={draftFilters.education}
                 onChangeText={(value) => setDraftFilters((prev) => ({ ...prev, education: value }))}
                 placeholder="Bachelors, Masters..."
-                placeholderTextColor="#9A8F84"
+                placeholderTextColor={theme.colors.mutedText}
               />
             </View>
 
@@ -872,7 +872,7 @@ export default function ProfileDiscoveryScreen() {
                 value={draftFilters.profession}
                 onChangeText={(value) => setDraftFilters((prev) => ({ ...prev, profession: value }))}
                 placeholder="Engineer, Doctor..."
-                placeholderTextColor="#9A8F84"
+                placeholderTextColor={theme.colors.mutedText}
               />
             </View>
 
@@ -886,7 +886,7 @@ export default function ProfileDiscoveryScreen() {
                     keyboardType="number-pad"
                     onChangeText={(value) => setDraftFilters((prev) => ({ ...prev, ageMin: value }))}
                     placeholder="Min"
-                    placeholderTextColor="#9A8F84"
+                    placeholderTextColor={theme.colors.mutedText}
                   />
                 </View>
                 <View style={styles.ageInputWrap}>
@@ -896,7 +896,7 @@ export default function ProfileDiscoveryScreen() {
                     keyboardType="number-pad"
                     onChangeText={(value) => setDraftFilters((prev) => ({ ...prev, ageMax: value }))}
                     placeholder="Max"
-                    placeholderTextColor="#9A8F84"
+                    placeholderTextColor={theme.colors.mutedText}
                   />
                 </View>
               </View>
@@ -931,7 +931,7 @@ export default function ProfileDiscoveryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F7E1C9' },
+  container: { flex: 1, backgroundColor: theme.colors.ivory },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -940,13 +940,13 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E8DDD0',
+    borderBottomColor: theme.colors.cardBorder,
   },
   backButton: {
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#FFF5E5',
+    backgroundColor: theme.colors.sand,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -966,7 +966,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#FFF5E5',
+    backgroundColor: theme.colors.sand,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -979,7 +979,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#E74C3C',
+    backgroundColor: theme.colors.pomegranateBright,
     paddingHorizontal: 3,
   },
   filterBadgeText: {
@@ -993,19 +993,19 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    backgroundColor: '#FFF5E5',
+    backgroundColor: theme.colors.sand,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#F0DAB9',
+    borderColor: theme.colors.cardBorder,
   },
   activeFilterText: {
-    color: '#6A5134',
+    color: theme.colors.gold,
     fontSize: 12,
     fontWeight: '600',
   },
   segmentContainer: {
     flexDirection: 'row',
-    backgroundColor: '#FFF5E5',
+    backgroundColor: theme.colors.sand,
     marginHorizontal: 16,
     marginTop: 14,
     borderRadius: 12,
@@ -1046,13 +1046,13 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  gridImageContainer: { width: '100%', aspectRatio: 1, backgroundColor: '#F0E8E0' },
+  gridImageContainer: { width: '100%', aspectRatio: 1, backgroundColor: theme.colors.sand },
   gridImage: { width: '100%', height: '100%' },
   gridEmptyImage: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFF5E5',
+    backgroundColor: theme.colors.sand,
   },
   gridBookmarkButton: {
     position: 'absolute',
@@ -1108,13 +1108,13 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   gridInfoText: {
-    color: '#5A6360',
+    color: theme.colors.bodyText,
     fontSize: 11.5,
     fontFamily: 'Georgia',
     flexShrink: 1,
   },
   gridMaritalText: {
-    color: '#D4AF37',
+    color: theme.colors.gold,
     fontSize: 11.5,
     fontWeight: '700',
     fontFamily: 'Georgia',
@@ -1137,7 +1137,7 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 6,
   },
-  emptyImage: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF5E5' },
+  emptyImage: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.sand },
   matchHeaderRow: {
     flexDirection: 'row',
     marginBottom: 14,
@@ -1152,7 +1152,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: 18,
-    backgroundColor: '#F0E8E0',
+    backgroundColor: theme.colors.sand,
   },
   matchGenderBadge: {
     position: 'absolute',
@@ -1173,7 +1173,7 @@ const styles = StyleSheet.create({
   },
   matchBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#D4AF37',
+    backgroundColor: theme.colors.gold,
     borderRadius: 999,
     paddingHorizontal: 9,
     paddingVertical: 3,
@@ -1196,12 +1196,12 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   ageLocationRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 5 },
-  infoText: { fontSize: 13, color: '#5A6360', fontFamily: 'Georgia', flexShrink: 1 },
+  infoText: { fontSize: 13, color: theme.colors.bodyText, fontFamily: 'Georgia', flexShrink: 1 },
   maritalStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  maritalStatusText: { fontSize: 12, color: '#D4AF37', fontWeight: '700', fontFamily: 'Georgia' },
+  maritalStatusText: { fontSize: 12, color: theme.colors.gold, fontWeight: '700', fontFamily: 'Georgia' },
   aboutMeText: {
     fontSize: 13,
-    color: '#5A6360',
+    color: theme.colors.bodyText,
     fontFamily: 'Georgia',
     lineHeight: 19,
     marginBottom: 12,
@@ -1209,16 +1209,16 @@ const styles = StyleSheet.create({
   biodataSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5E6D3',
+    backgroundColor: theme.colors.sand,
     borderRadius: 16,
     paddingVertical: 12,
     paddingHorizontal: 14,
     marginBottom: 14,
   },
   biodataItem: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  biodataDivider: { width: 1, height: 32, backgroundColor: '#E0D2BE', marginHorizontal: 10 },
+  biodataDivider: { width: 1, height: 32, backgroundColor: theme.colors.cardBorder, marginHorizontal: 10 },
   biodataTextCol: { flex: 1 },
-  biodataLabel: { fontSize: 11, color: '#5A6360', fontFamily: 'Georgia', fontWeight: '600' },
+  biodataLabel: { fontSize: 11, color: theme.colors.bodyText, fontFamily: 'Georgia', fontWeight: '600' },
   biodataValue: { fontSize: 13, color: theme.colors.text, fontFamily: 'Georgia', fontWeight: '700', marginTop: 1 },
   actionButtons: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   likeButton: {
@@ -1283,15 +1283,15 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#3D443F',
+    color: theme.colors.ink,
     marginBottom: 6,
   },
   filterInput: {
     height: 42,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E3D4C4',
-    backgroundColor: '#FFFDF9',
+    borderColor: theme.colors.cardBorder,
+    backgroundColor: theme.colors.invitationCard,
     paddingHorizontal: 12,
     fontSize: 13,
     color: theme.colors.text,

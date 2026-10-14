@@ -49,7 +49,7 @@ export default function TabNavigator() {
     >
       <Tab.Screen name="Discover" component={ProfileDiscoveryScreen} options={{ tabBarLabel: 'Discover' }} />
       <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: 'Home' }} />
-      <Tab.Screen name="Favorites" component={FavoritesScreen} options={{ tabBarLabel: 'Favorites' }} />
+      <Tab.Screen name="Favorites" component={FavoritesScreen} options={{ tabBarLabel: 'Shortlist' }} />
       <Tab.Screen name="Messages" component={MessagesScreen} options={{ tabBarLabel: 'Messages' }} />
       <Tab.Screen
         name="Notifications"
