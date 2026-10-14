@@ -621,7 +621,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1F2924',
+    color: theme.colors.text,
     fontFamily: 'Georgia',
   },
   spacer: {
@@ -668,7 +668,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   name: {
-    color: '#1F2924',
+    color: theme.colors.text,
     fontSize: 24,
     fontWeight: '800',
     fontFamily: 'Georgia',
@@ -704,7 +704,7 @@ const styles = StyleSheet.create({
   },
   infoValue: {
     fontSize: 13,
-    color: '#1F2924',
+    color: theme.colors.text,
     fontWeight: '700',
     marginTop: 4,
     textAlign: 'center',
@@ -720,7 +720,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sectionTitle: {
-    color: '#1F2924',
+    color: theme.colors.text,
     fontSize: 18,
     fontWeight: '800',
     fontFamily: 'Georgia',
@@ -748,7 +748,7 @@ const styles = StyleSheet.create({
   },
   detailValue: {
     fontSize: 14,
-    color: '#1F2924',
+    color: theme.colors.text,
     fontWeight: '700',
     fontFamily: 'Georgia',
   },
@@ -861,7 +861,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#1F2924',
+    color: theme.colors.text,
     marginBottom: 14,
     fontFamily: 'Georgia',
   },
@@ -919,7 +919,7 @@ const styles = StyleSheet.create({
   reportTypeChipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#1F2924',
+    color: theme.colors.text,
   },
   reportTypeChipTextActive: {
     color: '#fff',
@@ -930,7 +930,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 14,
     fontSize: 14,
-    color: '#1F2924',
+    color: theme.colors.text,
     minHeight: 90,
     textAlignVertical: 'top',
     marginBottom: 18,

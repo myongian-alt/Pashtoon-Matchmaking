@@ -1,5 +1,6 @@
 import React from 'react';
 import { SafeAreaView, StyleSheet, View, ViewProps } from 'react-native';
+import { theme } from '../../theme';
 
 interface ScreenContainerProps extends ViewProps {
   children: React.ReactNode;
@@ -16,7 +17,7 @@ export function ScreenContainer({ children, style, ...props }: ScreenContainerPr
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F5EE',
+    backgroundColor: theme.colors.background,
   },
   inner: {
     flex: 1,

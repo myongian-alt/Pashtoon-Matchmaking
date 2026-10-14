@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#1F2924',
+    color: theme.colors.text,
     fontFamily: 'Georgia',
   },
   tipRow: {
@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
   },
   tipTitle: {
     flex: 1,
-    color: '#1F2924',
+    color: theme.colors.text,
     fontWeight: '600',
     fontSize: 12,
   },

@@ -7,8 +7,8 @@ import { theme } from '../theme';
 import { useUser } from '../context/UserContext';
 
 const PALETTE = {
-  goldDeep: '#8C6636',
-  goldSoft: '#F4E9D4',
+  goldDeep: theme.colors.accentDeep,
+  goldSoft: theme.colors.accentSoft,
   emeraldGlow: 'rgba(19, 78, 54, 0.16)',
   goldGlow: 'rgba(173, 129, 74, 0.22)',
 };

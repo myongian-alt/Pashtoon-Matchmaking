@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
   option: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F5EE',
+    backgroundColor: theme.colors.background,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#D5E6DB',
+    borderColor: theme.colors.primarySoft,
   },
   benefitsTitle: {
     fontSize: 14,

@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1F2924',
+    color: theme.colors.text,
     fontFamily: 'Georgia',
   },
   spacer: {
@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontWeight: '600',
-    color: '#1F2924',
+    color: theme.colors.text,
   },
   profileStatusLink: {
     fontSize: 13,
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
   planTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#1F2924',
+    color: theme.colors.text,
     marginLeft: 12,
     fontFamily: 'Georgia',
   },
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
   },
   compactBenefitText: {
     fontSize: 11,
-    color: '#1F2924',
+    color: theme.colors.text,
     fontWeight: '600',
   },
   payNowButton: {

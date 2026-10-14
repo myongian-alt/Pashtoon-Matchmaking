@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   title: {
-    color: '#1F2924',
+    color: theme.colors.text,
     fontSize: 15,
     fontWeight: '800',
     marginBottom: 4,

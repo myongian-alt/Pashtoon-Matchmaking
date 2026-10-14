@@ -153,7 +153,7 @@ export default function AuthSelectionScreen() {
           </View>
           <Text style={styles.methodLabel}>Email</Text>
           <Text style={styles.methodDescription}>Connect with your email</Text>
-          <MaterialCommunityIcons name="chevron-right" size={20} color="#134E36" style={styles.chevron} />
+          <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.primary} style={styles.chevron} />
         </Pressable>
 
         {/* Google Option */}
@@ -173,7 +173,7 @@ export default function AuthSelectionScreen() {
           <Text style={styles.methodDescription}>
             {googleLoading ? 'Connecting...' : 'Continue with your Google account'}
           </Text>
-          <MaterialCommunityIcons name="chevron-right" size={20} color="#134E36" style={styles.chevron} />
+          <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.primary} style={styles.chevron} />
         </Pressable>
 
         {/* Phone Option */}
@@ -183,7 +183,7 @@ export default function AuthSelectionScreen() {
           </View>
           <Text style={styles.methodLabel}>Phone</Text>
           <Text style={styles.methodDescription}>Login with phone number</Text>
-          <MaterialCommunityIcons name="chevron-right" size={20} color="#134E36" style={styles.chevron} />
+          <MaterialCommunityIcons name="chevron-right" size={20} color={theme.colors.primary} style={styles.chevron} />
         </Pressable>
 
         {/* Guest Option */}
@@ -344,14 +344,14 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 18,
     borderWidth: 2.5,
-    borderColor: '#134E36',
+    borderColor: theme.colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
   },
   guestCard: {
     backgroundColor: '#EFF7F5',
-    borderColor: '#134E36',
+    borderColor: theme.colors.primary,
   },
   methodCardDisabled: {
     opacity: 0.7,
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#134E36',
+    backgroundColor: theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
   methodLabel: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#134E36',
+    color: theme.colors.primary,
     fontFamily: 'Georgia',
     flex: 1,
   },

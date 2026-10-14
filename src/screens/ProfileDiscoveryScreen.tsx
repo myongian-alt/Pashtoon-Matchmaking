@@ -953,7 +953,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1F2924',
+    color: theme.colors.text,
     fontFamily: 'Georgia',
     flex: 1,
     textAlign: 'center',
@@ -1097,7 +1097,7 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   gridName: {
-    color: '#1F2924',
+    color: theme.colors.text,
     fontSize: 16,
     fontWeight: '800',
     fontFamily: 'Georgia',
@@ -1120,7 +1120,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Georgia',
   },
   gridBiodataText: {
-    color: '#1F2924',
+    color: theme.colors.text,
     fontSize: 11.5,
     fontFamily: 'Georgia',
     fontWeight: '600',
@@ -1191,7 +1191,7 @@ const styles = StyleSheet.create({
   profileName: {
     fontSize: 19,
     fontWeight: '800',
-    color: '#1F2924',
+    color: theme.colors.text,
     fontFamily: 'Georgia',
     marginBottom: 4,
   },
@@ -1219,7 +1219,7 @@ const styles = StyleSheet.create({
   biodataDivider: { width: 1, height: 32, backgroundColor: '#E0D2BE', marginHorizontal: 10 },
   biodataTextCol: { flex: 1 },
   biodataLabel: { fontSize: 11, color: '#5A6360', fontFamily: 'Georgia', fontWeight: '600' },
-  biodataValue: { fontSize: 13, color: '#1F2924', fontFamily: 'Georgia', fontWeight: '700', marginTop: 1 },
+  biodataValue: { fontSize: 13, color: theme.colors.text, fontFamily: 'Georgia', fontWeight: '700', marginTop: 1 },
   actionButtons: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   likeButton: {
     flex: 1.2,
@@ -1273,7 +1273,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 19,
     fontWeight: '800',
-    color: '#1F2924',
+    color: theme.colors.text,
     marginBottom: 14,
     fontFamily: 'Georgia',
   },
@@ -1294,7 +1294,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFDF9',
     paddingHorizontal: 12,
     fontSize: 13,
-    color: '#1F2924',
+    color: theme.colors.text,
   },
   ageRow: {
     flexDirection: 'row',

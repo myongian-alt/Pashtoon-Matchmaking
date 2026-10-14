@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   title: {
-    color: '#1F2924',
+    color: theme.colors.text,
     fontSize: 16,
     fontWeight: '800',
     fontFamily: 'Georgia',
@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 13,
-    color: '#1F2924',
+    color: theme.colors.text,
     fontWeight: '800',
     textAlign: 'center',
   },

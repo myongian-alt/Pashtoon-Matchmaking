@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
   messageTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#1F2924',
+    color: theme.colors.text,
     marginBottom: 12,
     fontFamily: 'Georgia',
   },
@@ -199,7 +199,7 @@ const styles = StyleSheet.create({
   },
   detailValue: {
     fontSize: 14,
-    color: '#1F2924',
+    color: theme.colors.text,
     fontWeight: '700',
   },
   divider: {
@@ -212,12 +212,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#D5E6DB',
+    borderColor: theme.colors.primarySoft,
   },
   benefitsTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#1F2924',
+    color: theme.colors.text,
     marginBottom: 16,
     fontFamily: 'Georgia',
   },
