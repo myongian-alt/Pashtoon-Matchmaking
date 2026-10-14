@@ -18,6 +18,7 @@ import { AuthButton } from '../../components/common/AuthButton';
 import { useUser } from '../../context/UserContext';
 import { signInWithEmail, signUpWithEmail, resetPassword } from '../../lib/auth';
 import { toSafeErrorMessage } from '../../lib/errorMessages';
+import { resolvePostAuthRouteName } from '../../lib/database';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 
 type EmailAuthNavigationProp = NativeStackNavigationProp<RootStackParamList, 'EmailAuth'>;
@@ -97,10 +98,11 @@ export default function EmailAuthScreen() {
         setUserEmail(email);
         setIsAuthenticated(true);
         setIsGuest(false);
+        const routeName = response.user?.id ? await resolvePostAuthRouteName(response.user.id) : 'ProfileBasics';
         navigation.dispatch(
           CommonActions.reset({
             index: 0,
-            routes: [{ name: 'Tabs' }],
+            routes: [{ name: routeName }],
           })
         );
       } else {

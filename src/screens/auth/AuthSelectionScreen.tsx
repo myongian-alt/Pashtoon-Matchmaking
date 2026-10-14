@@ -8,6 +8,7 @@ import { fonts } from '../../theme/typography';
 import { LinkText } from '../../components/common/LinkText';
 import { signInWithGoogle } from '../../lib/auth';
 import { toSafeErrorMessage } from '../../lib/errorMessages';
+import { resolvePostAuthRouteName } from '../../lib/database';
 import { useUser } from '../../context/UserContext';
 
 const METHODS = [
@@ -45,10 +46,11 @@ export default function AuthSelectionScreen() {
     setIsAuthenticated(true);
     setIsGuest(false);
     setUserEmail(response.user?.email || null);
+    const routeName = response.user?.id ? await resolvePostAuthRouteName(response.user.id) : 'ProfileBasics';
     navigation.dispatch(
       CommonActions.reset({
         index: 0,
-        routes: [{ name: 'Tabs' }],
+        routes: [{ name: routeName }],
       })
     );
   };

@@ -4,10 +4,11 @@ import { useNavigation } from '@react-navigation/native';
 import { theme } from '../theme';
 import { navigationRef } from '../navigation/navigationRef';
 import { useUser } from '../context/UserContext';
+import { resolvePostAuthRouteName } from '../lib/database';
 
 export default function SplashScreen() {
   const navigation = useNavigation();
-  const { isAuthenticated, loading } = useUser();
+  const { isAuthenticated, loading, userId } = useUser();
   const opacity = React.useRef(new Animated.Value(0)).current;
   const translateY = React.useRef(new Animated.Value(32)).current;
   const [minDelayElapsed, setMinDelayElapsed] = useState(false);
@@ -41,9 +42,28 @@ export default function SplashScreen() {
     // navigated away from Splash during the animation/delay - don't stomp
     // over that with the default destination.
     if (!navigationRef.isReady() || navigationRef.getCurrentRoute()?.name === 'Splash') {
-      navigation.navigate((isAuthenticated ? 'Tabs' : 'Onboarding') as never);
+      if (!isAuthenticated) {
+        navigation.navigate('Onboarding' as never);
+        return;
+      }
+
+      // A returning authenticated user who never finished (or skipped) the
+      // post-signup basics screen must still see it - otherwise reloading
+      // the app right after signup (before saving basics) would silently
+      // skip it forever, since this is the only other place an
+      // authenticated session decides where to land.
+      if (!userId) {
+        navigation.navigate('Tabs' as never);
+        return;
+      }
+
+      resolvePostAuthRouteName(userId).then((routeName) => {
+        if (!navigationRef.isReady() || navigationRef.getCurrentRoute()?.name === 'Splash') {
+          navigation.navigate(routeName as never);
+        }
+      });
     }
-  }, [minDelayElapsed, loading, isAuthenticated, navigation]);
+  }, [minDelayElapsed, loading, isAuthenticated, userId, navigation]);
 
   return (
     <View style={styles.container}>

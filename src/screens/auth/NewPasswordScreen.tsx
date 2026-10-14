@@ -15,6 +15,7 @@ import { AuthButton } from '../../components/common/AuthButton';
 import { useUser } from '../../context/UserContext';
 import { updatePassword } from '../../lib/auth';
 import { toSafeErrorMessage } from '../../lib/errorMessages';
+import { resolvePostAuthRouteName } from '../../lib/database';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 
 type NewPasswordNavigationProp = NativeStackNavigationProp<RootStackParamList, 'NewPassword'>;
@@ -23,7 +24,7 @@ const MIN_PASSWORD_LENGTH = 8;
 
 export default function NewPasswordScreen() {
   const navigation = useNavigation<NewPasswordNavigationProp>();
-  const { setIsAuthenticated, setIsGuest } = useUser();
+  const { setIsAuthenticated, setIsGuest, userId } = useUser();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -55,13 +56,14 @@ export default function NewPasswordScreen() {
     setSuccess(true);
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     setIsAuthenticated(true);
     setIsGuest(false);
+    const routeName = userId ? await resolvePostAuthRouteName(userId) : 'Tabs';
     navigation.dispatch(
       CommonActions.reset({
         index: 0,
-        routes: [{ name: 'Tabs' }],
+        routes: [{ name: routeName }],
       })
     );
   };

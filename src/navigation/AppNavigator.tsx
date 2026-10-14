@@ -10,6 +10,7 @@ import EmailAuthScreen from '../screens/auth/EmailAuthScreen';
 import OtpVerificationScreen from '../screens/auth/OtpVerificationScreen';
 import NewPasswordScreen from '../screens/auth/NewPasswordScreen';
 import ChooseGenderScreen from '../screens/ChooseGenderScreen';
+import ProfileBasicsScreen from '../screens/profile/ProfileBasicsScreen';
 import ProfileCompletionScreen from '../screens/profile/ProfileCompletionScreen';
 import ProfileFormScreen from '../screens/profile/ProfileFormScreen';
 import PremiumScreen from '../screens/PremiumScreen';
@@ -37,6 +38,7 @@ export type RootStackParamList = {
   PhoneAuth: undefined;
   OtpVerification: { phone: string; gender?: 'male' | 'female' };
   NewPassword: undefined;
+  ProfileBasics: undefined;
   ProfileCompletion: undefined;
   ProfileForm: undefined;
   Tabs: undefined;
@@ -158,6 +160,7 @@ export default function AppNavigator() {
                 <Stack.Screen name="PhoneAuth" component={PhoneAuthScreen} />
                 <Stack.Screen name="OtpVerification" component={OtpVerificationScreen} />
                 <Stack.Screen name="NewPassword" component={NewPasswordScreen} />
+                <Stack.Screen name="ProfileBasics" component={ProfileBasicsScreen} />
                 <Stack.Screen name="ProfileCompletion" component={ProfileCompletionScreen} />
                 <Stack.Screen name="ProfileForm" component={ProfileFormScreen} />
                 <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />

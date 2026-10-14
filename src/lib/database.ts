@@ -21,6 +21,7 @@ type ProfileFormSnapshot = {
   eyeColour?: string;
   bloodGroup?: string;
   exerciseFrequency?: string;
+  smokerDrugs?: string;
   // Career
   employmentStatus?: string;
   monthlyIncome?: string;
@@ -401,6 +402,7 @@ export async function upsertCurrentUserProfile(
     eye_colour: (formData.eyeColour || '').trim() || null,
     blood_group: (formData.bloodGroup || '').trim() || null,
     exercise_frequency: EXERCISE_FREQUENCY_MAP[formData.exerciseFrequency || ''] || null,
+    smoker_or_drugs: yesNoToBool(formData.smokerDrugs),
 
     // Career
     employment_status: EMPLOYMENT_STATUS_MAP[formData.employmentStatus || ''] || null,
@@ -553,6 +555,7 @@ export function mapProfileRowToFormSnapshot(row: any): ProfileFormSnapshot & { p
     eyeColour: row.eye_colour || '',
     bloodGroup: row.blood_group || '',
     exerciseFrequency: EXERCISE_FREQUENCY_DISPLAY[row.exercise_frequency] || '',
+    smokerDrugs: boolToYesNo(row.smoker_or_drugs),
 
     // Career
     employmentStatus: EMPLOYMENT_STATUS_DISPLAY[row.employment_status] || '',
@@ -740,6 +743,62 @@ export async function setProfileCompletionStatus(profileCompleted: boolean) {
     .single();
 
   return { data, error };
+}
+
+// Separate, lighter flag from profile_completed above - tracks the short
+// post-signup basics screen (name/age/marital status/location/education/
+// profession/height/prayers/smoking/skin tone/income), not the full
+// ~90-field ProfileForm. Same table, sibling columns (migration 038), same
+// shape of pair so it's a drop-in parallel to the functions above.
+export async function getBasicsCompletionStatus(userId: string) {
+  const { data, error } = await supabase
+    .from('user_app_state')
+    .select('basics_completed, basics_completed_at, updated_at')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  return { data, error };
+}
+
+export async function setBasicsCompletionStatus(basicsCompleted: boolean) {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+
+  if (userError || !userData.user) {
+    return { data: null, error: userError || new Error('Not authenticated') };
+  }
+
+  const { data, error } = await supabase
+    .from('user_app_state')
+    .upsert(
+      {
+        user_id: userData.user.id,
+        basics_completed: basicsCompleted,
+        basics_completed_at: basicsCompleted ? new Date().toISOString() : null,
+      },
+      { onConflict: 'user_id' }
+    )
+    .select()
+    .single();
+
+  return { data, error };
+}
+
+// Single source of truth for "where does a just-authenticated user land" -
+// every auth-success call site (Google, email, phone OTP, password
+// recovery) should route through this rather than hardcoding 'Tabs', so a
+// user who hasn't done the basics screen yet always gets it once, exactly
+// once, regardless of which auth method they used. Does a direct DB read
+// rather than trusting UserContext's own (possibly not-yet-hydrated)
+// basicsCompleted state, since this runs at the exact moment auth succeeds -
+// before that context's own hydration effect is guaranteed to have resolved.
+export async function resolvePostAuthRouteName(userId: string): Promise<'ProfileBasics' | 'Tabs'> {
+  try {
+    const { data } = await getBasicsCompletionStatus(userId);
+    return data?.basics_completed ? 'Tabs' : 'ProfileBasics';
+  } catch (error) {
+    console.warn('resolvePostAuthRouteName failed, defaulting to ProfileBasics:', (error as Error)?.message);
+    return 'ProfileBasics';
+  }
 }
 
 // ============================================================================
