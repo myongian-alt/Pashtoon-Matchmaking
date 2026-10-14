@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View, FlatList, Image, ActivityIndicator, 
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { theme } from '../theme';
+import { fonts } from '../theme/typography';
 import { useUser } from '../context/UserContext';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { getDiscoveryProfiles, getMatches, likeProfile, removeLike, getShortlistedProfiles, getWhoLikedMe, getConversationWithUser, EDUCATION_LEVEL_DISPLAY } from '../lib/database';
@@ -30,6 +31,7 @@ type ProfileListItem = {
   image?: any;
   aboutMe?: string;
   compatibility?: number;
+  photoCount?: number;
   source: 'discover' | 'matches';
 };
 
@@ -61,6 +63,8 @@ const fallbackDiscoverProfiles: ProfileListItem[] = [
     education: 'Masters',
     profession: 'Doctor',
     image: null,
+    aboutMe: 'Looking for someone kind, family-oriented, and grounded in faith.',
+    photoCount: 3,
     source: 'discover',
   },
   {
@@ -74,6 +78,8 @@ const fallbackDiscoverProfiles: ProfileListItem[] = [
     education: 'Bachelors',
     profession: 'Software Engineer',
     image: null,
+    aboutMe: 'Simple, hardworking, and looking to build a future rooted in our traditions.',
+    photoCount: 4,
     source: 'discover',
   },
   {
@@ -87,6 +93,8 @@ const fallbackDiscoverProfiles: ProfileListItem[] = [
     education: 'Bachelors',
     profession: 'Teacher',
     image: null,
+    aboutMe: 'Love teaching and spending time with family. Seeking a respectful partner.',
+    photoCount: 2,
     source: 'discover',
   },
   {
@@ -100,6 +108,8 @@ const fallbackDiscoverProfiles: ProfileListItem[] = [
     education: 'MBA',
     profession: 'Business Analyst',
     image: null,
+    aboutMe: 'Settled professional looking for a genuine connection and a peaceful home.',
+    photoCount: 5,
     source: 'discover',
   },
 ];
@@ -187,6 +197,7 @@ function toListItemFromProfile(row: any, source: 'discover' | 'matches'): Profil
     image: imageUri ? { uri: imageUri } : null,
     aboutMe: row.about_me || '',
     compatibility: row.match_score || row.profile_strength_percentage || 80,
+    photoCount: (row.profile_photos || []).length,
     source,
   };
 }
@@ -668,7 +679,16 @@ export default function ProfileDiscoveryScreen() {
   const renderDiscoverGridCard = ({ item }: { item: ProfileListItem }) => {
     const isLiked = likedProfiles.includes(item.id);
     const isShortlisted = shortlistedProfiles.includes(item.id);
-    const educationProfession = [item.education, item.profession].filter((value) => value && value !== 'Not set').join(' · ');
+    const firstName = (item.name || 'they').split(' ')[0];
+    const photoCount = item.photoCount ?? 0;
+    // Discover is, by definition, everyone not yet mutually matched - photos
+    // stay under a visual lock here until the person accepts a request (see
+    // the Matches tab, which shows photos normally since that connection is
+    // already mutual). This is a client-side overlay only, not real access
+    // control - the underlying photo URL is still directly fetchable. Real
+    // enforcement needs a server-side/storage-policy blur, which is a
+    // separate, deferred backend task (flagged to the user).
+    const isLocked = item.source === 'discover' && !!item.image;
 
     return (
       <Pressable style={styles.gridCard} onPress={() => handleViewProfile(item)}>
@@ -678,6 +698,24 @@ export default function ProfileDiscoveryScreen() {
           ) : (
             <View style={styles.gridEmptyImage}>
               <ModernMuslimAvatar gender={item.gender} size={72} />
+            </View>
+          )}
+
+          {isLocked && (
+            <View style={styles.gridLockOverlay} pointerEvents="none">
+              <View style={styles.gridLockIconCircle}>
+                <MaterialCommunityIcons name="lock" size={18} color="#fff" />
+              </View>
+              <Text style={styles.gridLockText} numberOfLines={2}>
+                Photos unlock when{'\n'}{firstName} accepts
+              </Text>
+            </View>
+          )}
+
+          {photoCount > 0 && (
+            <View style={styles.gridPhotoCountBadge}>
+              <MaterialCommunityIcons name="image-multiple" size={12} color="#fff" />
+              <Text style={styles.gridPhotoCountText}>{photoCount}</Text>
             </View>
           )}
 
@@ -726,16 +764,24 @@ export default function ProfileDiscoveryScreen() {
           <Text style={styles.gridName} numberOfLines={1}>
             {item.name}{item.age ? `, ${item.age}` : ''}
           </Text>
+          {item.profession && item.profession !== 'Not set' && (
+            <View style={styles.gridInfoRow}>
+              <MaterialCommunityIcons name="briefcase" size={12} color={theme.colors.emerald} />
+              <Text style={styles.gridInfoText} numberOfLines={1}>{item.profession}</Text>
+            </View>
+          )}
+          {item.education && item.education !== 'Not set' && (
+            <View style={styles.gridInfoRow}>
+              <MaterialCommunityIcons name="school" size={12} color={theme.colors.emerald} />
+              <Text style={styles.gridInfoText} numberOfLines={1}>{item.education}</Text>
+            </View>
+          )}
           <View style={styles.gridInfoRow}>
             <MaterialCommunityIcons name="map-marker" size={12} color={theme.colors.gold} />
             <Text style={styles.gridInfoText} numberOfLines={1}>{item.location}</Text>
           </View>
-          <View style={styles.gridInfoRow}>
-            <MaterialCommunityIcons name="ring" size={12} color={theme.colors.gold} />
-            <Text style={styles.gridMaritalText} numberOfLines={1}>{item.maritalStatus}</Text>
-          </View>
-          {educationProfession ? (
-            <Text style={styles.gridBiodataText} numberOfLines={1}>{educationProfession}</Text>
+          {item.aboutMe ? (
+            <Text style={styles.gridMessageText} numberOfLines={2}>{item.aboutMe}</Text>
           ) : null}
         </View>
       </Pressable>
@@ -938,7 +984,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.invitationCard,
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.cardBorder,
   },
@@ -952,9 +998,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: '700',
-    color: theme.colors.text,
-    fontFamily: 'Georgia',
+    color: theme.colors.ink,
+    fontFamily: fonts.heading,
     flex: 1,
     textAlign: 'center',
   },
@@ -1008,45 +1053,102 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.sand,
     marginHorizontal: 16,
     marginTop: 14,
-    borderRadius: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: theme.colors.cardBorder,
     padding: 4,
   },
   segmentButton: {
     flex: 1,
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: 11,
     alignItems: 'center',
   },
   segmentButtonActive: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.emerald,
+    shadowColor: theme.colors.emerald,
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 6,
+    elevation: 2,
   },
   segmentText: {
-    color: theme.colors.primary,
-    fontWeight: '700',
+    color: theme.colors.emerald,
+    fontFamily: fonts.labelBold,
     fontSize: 13,
   },
   segmentTextActive: {
     color: '#fff',
   },
   profilesList: { padding: 16, paddingBottom: 100 },
-  gridRow: { justifyContent: 'flex-start', gap: 10 },
+  gridRow: { justifyContent: 'flex-start', gap: 14 },
   gridCard: {
     flex: 1,
     // Capped so a 2-column tile never balloons past a sensible size on a
     // wide/tablet-width viewport - flex:1 still shrinks it correctly on
     // narrow phone widths, this only clamps the upper bound.
     maxWidth: 210,
-    marginBottom: 10,
-    borderRadius: 16,
+    marginBottom: 14,
+    // Islamic-arch silhouette: a large top radius reads as a mosque-arch
+    // dome, a small bottom radius keeps the footer a normal rounded card -
+    // same device ArchFrame uses, applied at the card level (not via that
+    // component) since this needs the FlatList's own flex-measured width,
+    // not a fixed pixel size.
+    borderTopLeftRadius: 54,
+    borderTopRightRadius: 54,
+    borderBottomLeftRadius: 14,
+    borderBottomRightRadius: 14,
     overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
+    backgroundColor: theme.colors.invitationCard,
+    borderWidth: 1.5,
+    borderColor: theme.colors.cardBorder,
+    shadowColor: theme.colors.shadow,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
   },
   gridImageContainer: { width: '100%', aspectRatio: 1, backgroundColor: theme.colors.sand },
+  gridLockOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15, 76, 58, 0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+  },
+  gridLockIconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gridLockText: {
+    color: '#fff',
+    fontFamily: fonts.bodyMedium,
+    fontSize: 11,
+    textAlign: 'center',
+    lineHeight: 14,
+  },
+  gridPhotoCountBadge: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  gridPhotoCountText: {
+    color: '#fff',
+    fontFamily: fonts.labelBold,
+    fontSize: 11,
+  },
   gridImage: { width: '100%', height: '100%' },
   gridEmptyImage: {
     flex: 1,
@@ -1092,15 +1194,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(231, 76, 60, 0.85)',
   },
   gridCardContent: {
-    paddingHorizontal: 10,
-    paddingVertical: 9,
+    paddingHorizontal: 11,
+    paddingVertical: 10,
     gap: 3,
   },
   gridName: {
-    color: theme.colors.text,
+    color: theme.colors.ink,
     fontSize: 16,
-    fontWeight: '800',
-    fontFamily: 'Georgia',
+    fontFamily: fonts.nameItalic,
+    marginBottom: 2,
   },
   gridInfoRow: {
     flexDirection: 'row',
@@ -1110,28 +1212,35 @@ const styles = StyleSheet.create({
   gridInfoText: {
     color: theme.colors.bodyText,
     fontSize: 11.5,
-    fontFamily: 'Georgia',
+    fontFamily: fonts.body,
     flexShrink: 1,
   },
   gridMaritalText: {
     color: theme.colors.gold,
     fontSize: 11.5,
-    fontWeight: '700',
-    fontFamily: 'Georgia',
+    fontFamily: fonts.labelBold,
   },
   gridBiodataText: {
-    color: theme.colors.text,
+    color: theme.colors.ink,
     fontSize: 11.5,
-    fontFamily: 'Georgia',
-    fontWeight: '600',
+    fontFamily: fonts.bodyMedium,
     marginTop: 1,
+  },
+  gridMessageText: {
+    color: theme.colors.mutedText,
+    fontSize: 11.5,
+    fontFamily: fonts.bodyItalic,
+    lineHeight: 15,
+    marginTop: 3,
   },
   profileCard: {
     borderRadius: 22,
     overflow: 'hidden',
     marginBottom: 14,
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
+    backgroundColor: theme.colors.invitationCard,
+    borderWidth: 1.5,
+    borderColor: theme.colors.cardBorder,
+    shadowColor: theme.colors.shadow,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
@@ -1151,7 +1260,14 @@ const styles = StyleSheet.create({
   matchImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 18,
+    // Same arch silhouette as the Discover grid card, scaled to this
+    // smaller avatar size.
+    borderTopLeftRadius: 46,
+    borderTopRightRadius: 46,
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
+    borderWidth: 1.5,
+    borderColor: theme.colors.gold,
     backgroundColor: theme.colors.sand,
   },
   matchGenderBadge: {
@@ -1190,19 +1306,18 @@ const styles = StyleSheet.create({
   cardContent: { padding: 16 },
   profileName: {
     fontSize: 19,
-    fontWeight: '800',
-    color: theme.colors.text,
-    fontFamily: 'Georgia',
+    color: theme.colors.ink,
+    fontFamily: fonts.nameItalic,
     marginBottom: 4,
   },
   ageLocationRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 5 },
-  infoText: { fontSize: 13, color: theme.colors.bodyText, fontFamily: 'Georgia', flexShrink: 1 },
+  infoText: { fontSize: 13, color: theme.colors.bodyText, fontFamily: fonts.body, flexShrink: 1 },
   maritalStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  maritalStatusText: { fontSize: 12, color: theme.colors.gold, fontWeight: '700', fontFamily: 'Georgia' },
+  maritalStatusText: { fontSize: 12, color: theme.colors.gold, fontFamily: fonts.labelBold },
   aboutMeText: {
     fontSize: 13,
     color: theme.colors.bodyText,
-    fontFamily: 'Georgia',
+    fontFamily: fonts.bodyItalic,
     lineHeight: 19,
     marginBottom: 12,
   },

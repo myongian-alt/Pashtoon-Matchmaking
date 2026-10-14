@@ -8,9 +8,19 @@ import MessagesScreen from '../screens/MessagesScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import AccountScreen from '../screens/AccountScreen';
 import { theme } from '../theme';
+import { fonts } from '../theme/typography';
 import { useNotifications } from '../context/NotificationsContext';
 
 const Tab = createBottomTabNavigator();
+
+const TAB_ACCENT_COLORS: Record<string, string> = {
+  Discover: theme.colors.lapis,
+  Home: theme.colors.emerald,
+  Favorites: theme.colors.pomegranate,
+  Messages: theme.colors.lapis,
+  Notifications: theme.colors.gold,
+  Account: theme.colors.emerald,
+};
 
 export default function TabNavigator() {
   const { unreadCount } = useNotifications();
@@ -26,12 +36,21 @@ export default function TabNavigator() {
           height: 72,
           paddingBottom: 10,
           paddingTop: 10,
+          shadowColor: theme.colors.shadow,
+          shadowOpacity: 0.08,
+          shadowOffset: { width: 0, height: -3 },
+          shadowRadius: 10,
+          elevation: 8,
         },
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.textSecondary,
+        // Each tab gets its own brand accent when active (matching the
+        // per-section colors used throughout the redesign - Discover/Chats
+        // lapis, Rishtas/Shortlist pomegranate, etc.) instead of every tab
+        // turning the same single color, which read as flat/colourless.
+        tabBarActiveTintColor: TAB_ACCENT_COLORS[route.name] || theme.colors.emerald,
+        tabBarInactiveTintColor: theme.colors.faintText,
         tabBarLabelStyle: {
           fontSize: 12,
-          fontWeight: '700',
+          fontFamily: fonts.labelBold,
         },
         tabBarIcon: ({ color, size }) => {
           let iconName: keyof typeof MaterialCommunityIcons.glyphMap = 'home';
@@ -58,7 +77,7 @@ export default function TabNavigator() {
           tabBarLabel: 'Alerts',
           tabBarBadge: unreadCount || undefined,
           tabBarBadgeStyle: {
-            backgroundColor: theme.colors.primary,
+            backgroundColor: theme.colors.pomegranateBright,
             color: '#fff',
           },
         }}
