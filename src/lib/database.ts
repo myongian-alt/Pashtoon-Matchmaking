@@ -110,13 +110,13 @@ export const EDUCATION_LEVEL_DISPLAY: Record<string, string> = Object.fromEntrie
 // inline wherever it isn't obvious.
 // ============================================================================
 
-function yesNoToBool(value?: string): boolean | null {
+export function yesNoToBool(value?: string): boolean | null {
   if (value === 'Yes') return true;
   if (value === 'No') return false;
   return null;
 }
 
-function boolToYesNo(value: boolean | null | undefined): string {
+export function boolToYesNo(value: boolean | null | undefined): string {
   if (value === true) return 'Yes';
   if (value === false) return 'No';
   return '';
@@ -127,14 +127,14 @@ function boolToYesNo(value: boolean | null | undefined): string {
 // whichever of the UI's own fixed options is numerically closest, since the
 // DB never stores the original string.
 const HEIGHT_OPTIONS = ['4\'10"', '4\'11"', '5\'0"', '5\'2"', '5\'4"', '5\'6"', '5\'8"', '5\'10"', '6\'0"', '6\'2"', '6\'4"'];
-function heightLabelToCm(label?: string): number | null {
+export function heightLabelToCm(label?: string): number | null {
   const match = /^(\d+)'(\d+)"?$/.exec((label || '').trim());
   if (!match) return null;
   const feet = parseInt(match[1], 10);
   const inches = parseInt(match[2], 10);
   return Math.round(feet * 30.48 + inches * 2.54);
 }
-function cmToHeightLabel(cm?: number | null): string {
+export function cmToHeightLabel(cm?: number | null): string {
   if (typeof cm !== 'number') return '';
   let closest = HEIGHT_OPTIONS[0];
   let smallestDiff = Infinity;
@@ -164,11 +164,11 @@ const WEIGHT_BUCKETS: { label: string; min: number; max: number; midpoint: numbe
   { label: '90-100kg', min: 90, max: 100, midpoint: 95 },
   { label: '100kg+', min: 100, max: Infinity, midpoint: 105 },
 ];
-function weightLabelToKg(label?: string): number | null {
+export function weightLabelToKg(label?: string): number | null {
   const bucket = WEIGHT_BUCKETS.find((b) => b.label === label);
   return bucket ? bucket.midpoint : null;
 }
-function kgToWeightLabel(kg?: number | null): string {
+export function kgToWeightLabel(kg?: number | null): string {
   if (typeof kg !== 'number') return '';
   const bucket = WEIGHT_BUCKETS.find((b) => kg >= b.min && kg < b.max) || WEIGHT_BUCKETS[WEIGHT_BUCKETS.length - 1];
   return bucket.label;
@@ -177,7 +177,7 @@ function kgToWeightLabel(kg?: number | null): string {
 // Preferred spouse age: same bucket-range shape as weight, but split across
 // two integer columns (min/max) rather than one approximate value - no
 // precision is lost here, "18-25" means exactly min=18/max=25.
-function ageRangeLabelToMinMax(label?: string): { min: number | null; max: number | null } {
+export function ageRangeLabelToMinMax(label?: string): { min: number | null; max: number | null } {
   if (!label || label === 'No preference') return { min: null, max: null };
   const plusMatch = /^(\d+)\+$/.exec(label);
   if (plusMatch) return { min: parseInt(plusMatch[1], 10), max: null };
@@ -186,7 +186,7 @@ function ageRangeLabelToMinMax(label?: string): { min: number | null; max: numbe
   return { min: null, max: null };
 }
 const AGE_RANGE_OPTIONS = ['18-25', '25-30', '30-35', '35-40', '40+', 'No preference'];
-function minMaxToAgeRangeLabel(min?: number | null, max?: number | null): string {
+export function minMaxToAgeRangeLabel(min?: number | null, max?: number | null): string {
   if (min == null && max == null) return 'No preference';
   for (const label of AGE_RANGE_OPTIONS) {
     const parsed = ageRangeLabelToMinMax(label);
@@ -295,7 +295,7 @@ function invert(map: Record<string, string>, preferredDisplay?: string): Record<
   return result;
 }
 
-function toArrayOrNull(value?: string | null): string[] | null {
+export function toArrayOrNull(value?: string | null): string[] | null {
   const trimmed = (value || '').trim();
   if (!trimmed || trimmed === 'No preference' || trimmed === 'Any') return null;
   return [trimmed];
@@ -303,14 +303,14 @@ function toArrayOrNull(value?: string | null): string[] | null {
 
 // Hobbies is a single free-text textarea in the UI but an array column in
 // the DB - split on commas/newlines into individual trimmed tags.
-function hobbiesTextToArray(value?: string): string[] | null {
+export function hobbiesTextToArray(value?: string): string[] | null {
   const parts = (value || '')
     .split(/[,\n]/)
     .map((s) => s.trim())
     .filter(Boolean);
   return parts.length > 0 ? parts : null;
 }
-function hobbiesArrayToText(value?: string[] | null): string {
+export function hobbiesArrayToText(value?: string[] | null): string {
   return Array.isArray(value) ? value.join(', ') : '';
 }
 
