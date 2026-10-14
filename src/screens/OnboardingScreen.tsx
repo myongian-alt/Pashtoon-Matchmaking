@@ -3,6 +3,8 @@ import { Animated, Dimensions, Image, Pressable, ScrollView, StyleSheet, Text, V
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { theme } from '../theme';
+import { fonts } from '../theme/typography';
+import { ArchFrame } from '../components/common/ArchFrame';
 
 const { width } = Dimensions.get('window');
 const featureItems = [
@@ -63,17 +65,15 @@ export default function OnboardingScreen() {
         <View style={styles.header} />
 
         <View style={styles.hero}>
-          <View style={styles.heroBadge}>
-            <Text style={styles.heroBadgeText} numberOfLines={1}>
-              {' Pashtoon Matchmaking'}
-            </Text>
-          </View>
+          <Text style={styles.pashtoGreeting}>پخیر راغلئ</Text>
+          <Text style={styles.brand}>Khpalwali</Text>
+          <Text style={styles.brandSubtitle}>PASHTOON MATCHMAKING</Text>
 
-          <Animated.Image
-            source={weddingImage}
-            style={[styles.heroImage, { transform: [{ translateY: float }] }]}
-            resizeMode="cover"
-          />
+          <Animated.View style={{ transform: [{ translateY: float }], marginTop: 18, marginBottom: 18 }}>
+            <ArchFrame width={Math.min(width - 48, 320)} height={(Math.min(width - 48, 320) * 0.82)} borderColor={theme.colors.gold}>
+              <Image source={weddingImage} style={styles.heroImage} resizeMode="cover" />
+            </ArchFrame>
+          </Animated.View>
 
           <View style={styles.heroTextWrapper}>
             <Text style={styles.heading}>
@@ -125,7 +125,7 @@ export default function OnboardingScreen() {
           Tap Next to review our community agreement and continue.
         </Text>
         <Pressable style={styles.button} onPress={() => navigation.navigate('Declaration' as never)}>
-          <Text style={styles.buttonText}>Next</Text>
+          <Text style={styles.buttonText}>Begin your journey</Text>
         </Pressable>
       </View>
     </View>
@@ -135,7 +135,7 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7E1C9',
+    backgroundColor: theme.colors.emeraldDeep,
   },
   scrollView: {
     flex: 1,
@@ -148,101 +148,59 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   skip: {
-    color: theme.colors.muted,
+    color: theme.colors.lightTextOnDark,
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: fonts.bodyMedium,
   },
   hero: {
     marginTop: 20,
     alignItems: 'center',
     flexShrink: 0,
   },
-  heroBadge: {
-    backgroundColor: '#F3E4D8',
-    borderRadius: 32,
-    paddingVertical: 16,
-    paddingHorizontal: 22,
-    marginBottom: 18,
-    borderWidth: 1,
-    borderColor: '#C9A46F',
-    shadowColor: theme.colors.shadow,
-    shadowOpacity: 0.18,
-    shadowOffset: { width: 0, height: 10 },
-    shadowRadius: 20,
-    elevation: 8,
-    width: '90%',
-    maxWidth: 520,
-    minWidth: 280,
-    alignSelf: 'center',
-    alignItems: 'center',
-    justifyContent: 'center',
+  pashtoGreeting: {
+    fontFamily: fonts.greeting,
+    fontSize: 20,
+    color: theme.colors.goldLight,
+    marginBottom: 6,
   },
-  heroBadgeText: {
-    color: '#6F4327',
-    fontWeight: '900',
-    fontSize: 26,
-    letterSpacing: 1,
-    textTransform: 'none',
-    fontStyle: 'italic',
-    fontFamily: 'serif',
-    textAlign: 'center',
+  brand: {
+    fontFamily: fonts.heading,
+    fontSize: 42,
+    color: theme.colors.lightTextOnDark,
+  },
+  brandSubtitle: {
+    fontFamily: fonts.label,
+    fontSize: 13,
+    letterSpacing: 3,
+    color: theme.colors.goldLight,
+    marginTop: 2,
   },
   heroImage: {
     width: '100%',
-    maxWidth: 420,
-    height: width * 0.38,
-    borderRadius: 24,
-    marginBottom: 10,
-    borderWidth: 2,
-    borderColor: theme.colors.accent,
-    shadowColor: theme.colors.shadow,
-    shadowOpacity: 0.22,
-    shadowOffset: { width: 0, height: 14 },
-    shadowRadius: 30,
-    elevation: 12,
-  },
-  avatarShell: {
-    width: 0,
-    height: 0,
-  },
-  avatarCircle: {
-    width: 0,
-    height: 0,
+    height: '100%',
   },
   heading: {
-    fontSize: 34,
-    fontWeight: '900',
-    color: '#5B3A25',
+    fontFamily: fonts.heading,
+    fontSize: 30,
+    color: theme.colors.lightTextOnDark,
     textAlign: 'center',
     marginBottom: 14,
-    lineHeight: 48,
+    lineHeight: 38,
     paddingHorizontal: 16,
-    textShadowColor: '#C9A673',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-    fontFamily: 'serif',
-  },
-  headingAccent: {
-    color: '#7B512B',
-    fontStyle: 'italic',
-    fontWeight: '900',
   },
   subtitle: {
-    fontSize: 16,
-    lineHeight: 26,
-    color: '#4B3825',
+    fontFamily: fonts.body,
+    fontSize: 15.5,
+    lineHeight: 24,
+    color: theme.colors.goldPale,
     textAlign: 'center',
     maxWidth: 420,
     width: '100%',
     alignSelf: 'center',
     marginBottom: 18,
   },
-  subtitleAccent: {
-    color: '#7B512B',
-    fontWeight: '900',
-  },
   heroTextWrapper: {
-    marginTop: 12,
+    marginTop: 4,
     paddingHorizontal: 12,
     alignItems: 'center',
   },
@@ -257,71 +215,68 @@ const styles = StyleSheet.create({
   featureCard: {
     width: '46%',
     minWidth: 132,
+    flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 16,
     paddingVertical: 12,
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
+    gap: 8,
     borderWidth: 1,
-    shadowColor: theme.colors.shadow,
-    shadowOpacity: 0.06,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 10,
-    elevation: 2,
   },
   featureCardEmerald: {
-    backgroundColor: theme.colors.primarySoft,
-    borderColor: 'rgba(19, 78, 54, 0.18)',
+    backgroundColor: 'rgba(227, 238, 232, 0.12)',
+    borderColor: 'rgba(227, 238, 232, 0.2)',
   },
   featureCardGold: {
-    backgroundColor: theme.colors.accentSoft,
-    borderColor: 'rgba(140, 102, 54, 0.22)',
+    backgroundColor: 'rgba(231, 194, 122, 0.16)',
+    borderColor: 'rgba(231, 194, 122, 0.3)',
   },
   featureIconBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 11,
+    width: 28,
+    height: 28,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
   },
   featureIconBadgeEmerald: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.emerald,
   },
   featureIconBadgeGold: {
-    backgroundColor: theme.colors.accentDeep,
+    backgroundColor: theme.colors.gold,
   },
   featureText: {
-    color: theme.colors.text,
-    fontSize: 12,
-    fontWeight: '700',
+    flexShrink: 1,
+    color: theme.colors.lightTextOnDark,
+    fontFamily: fonts.bodyMedium,
+    fontSize: 12.5,
     lineHeight: 16,
-    textAlign: 'center',
   },
   footer: {
     paddingTop: 12,
     paddingHorizontal: 24,
     paddingBottom: 20,
     borderTopWidth: 1,
-    borderTopColor: '#E3D7C4',
-    backgroundColor: '#F7E1C9',
+    borderTopColor: 'rgba(246, 235, 211, 0.15)',
+    backgroundColor: theme.colors.emeraldDeep,
   },
   bottomText: {
-    color: theme.colors.textSecondary,
+    color: theme.colors.goldPale,
     textAlign: 'center',
     marginBottom: 14,
+    fontFamily: fonts.body,
     fontSize: 13,
     lineHeight: 20,
     paddingHorizontal: 15,
   },
   button: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: theme.colors.gold,
     paddingVertical: 18,
     borderRadius: 20,
     alignItems: 'center',
   },
   buttonText: {
-    color: '#fff',
+    color: theme.colors.ink,
+    fontFamily: fonts.labelBold,
     fontSize: 16,
-    fontWeight: '800',
   },
 });
