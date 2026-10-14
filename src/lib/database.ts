@@ -13,6 +13,61 @@ type ProfileFormSnapshot = {
   profession?: string;
   aboutMe?: string;
   profileStrength?: number;
+  // Physical & Health
+  height?: string;
+  weight?: string;
+  bodyType?: string;
+  skinColour?: string;
+  eyeColour?: string;
+  bloodGroup?: string;
+  exerciseFrequency?: string;
+  // Career
+  employmentStatus?: string;
+  monthlyIncome?: string;
+  futureCareerPlans?: string;
+  // Financial
+  ownsProperty?: string;
+  ancestralLand?: string;
+  savings?: string;
+  debts?: string;
+  ownsCar?: string;
+  moneyManagement?: string;
+  // Religious
+  prayerFrequency?: string;
+  fastRamadan?: string;
+  givesZakat?: string;
+  religionImportance?: string;
+  spouseReligiosity?: string;
+  // Values
+  importantValue?: string;
+  handleDisagreements?: string;
+  genderRoles?: string;
+  polygamyView?: string;
+  // Family
+  familyStructure?: string;
+  familyCloseness?: string;
+  liveWithInlaws?: string;
+  socializeFrequency?: string;
+  celebrateCustoms?: string;
+  // Emotional
+  handleStress?: string;
+  personality?: string;
+  forgivenessLevel?: string;
+  loveLanguage?: string;
+  showAffection?: string;
+  // Lifestyle
+  outlook?: string;
+  tradModernOutlook?: string;
+  musicPreference?: string;
+  hobbies?: string;
+  // Marriage
+  wantToMarryWhen?: string;
+  preferredSpouseAge?: string;
+  preferredEducation?: string;
+  preferredProfession?: string;
+  preferWorkingSpouse?: string;
+  expectedKids?: string;
+  idealMarriage?: string;
 };
 
 const MARITAL_STATUS_MAP: Record<string, 'never_married' | 'married' | 'divorced' | 'widowed' | 'separated'> = {
@@ -38,6 +93,226 @@ const EDUCATION_LEVEL_MAP: Record<string, 'high_school' | 'bachelors' | 'masters
 export const EDUCATION_LEVEL_DISPLAY: Record<string, string> = Object.fromEntries(
   Object.entries(EDUCATION_LEVEL_MAP).map(([display, dbValue]) => [dbValue, display])
 );
+
+// ============================================================================
+// EXTENDED PROFILE FIELD MAPS (Physical/Career/Financial/Religious/Values/
+// Family/Emotional/Lifestyle/Marriage sections)
+//
+// Same two-map pattern as MARITAL_STATUS/EDUCATION_LEVEL above, for every
+// enum-backed column the full ~90-field form collects but
+// upsertCurrentUserProfile previously dropped on the floor (only ~12 core
+// fields were ever persisted - see CLAUDE.md). The UI's option label sets
+// and the Postgres enums' value sets were defined independently and don't
+// always line up 1:1 - where a UI label has no sensible matching enum
+// value, it maps to `null` (profile_strength/compatibility scoring just
+// treats that as "not answered") rather than guessing a wrong one. This is
+// a one-way judgment call per field, not a mechanical transform - documented
+// inline wherever it isn't obvious.
+// ============================================================================
+
+function yesNoToBool(value?: string): boolean | null {
+  if (value === 'Yes') return true;
+  if (value === 'No') return false;
+  return null;
+}
+
+function boolToYesNo(value: boolean | null | undefined): string {
+  if (value === true) return 'Yes';
+  if (value === false) return 'No';
+  return '';
+}
+
+// Height: UI collects a fixed feet'inches" string, DB wants an exact cm
+// integer. Parsing feet/inches to cm is exact; going back, we snap to
+// whichever of the UI's own fixed options is numerically closest, since the
+// DB never stores the original string.
+const HEIGHT_OPTIONS = ['4\'10"', '4\'11"', '5\'0"', '5\'2"', '5\'4"', '5\'6"', '5\'8"', '5\'10"', '6\'0"', '6\'2"', '6\'4"'];
+function heightLabelToCm(label?: string): number | null {
+  const match = /^(\d+)'(\d+)"?$/.exec((label || '').trim());
+  if (!match) return null;
+  const feet = parseInt(match[1], 10);
+  const inches = parseInt(match[2], 10);
+  return Math.round(feet * 30.48 + inches * 2.54);
+}
+function cmToHeightLabel(cm?: number | null): string {
+  if (typeof cm !== 'number') return '';
+  let closest = HEIGHT_OPTIONS[0];
+  let smallestDiff = Infinity;
+  for (const label of HEIGHT_OPTIONS) {
+    const labelCm = heightLabelToCm(label);
+    if (labelCm === null) continue;
+    const diff = Math.abs(labelCm - cm);
+    if (diff < smallestDiff) {
+      smallestDiff = diff;
+      closest = label;
+    }
+  }
+  return closest;
+}
+
+// Weight: UI collects a bucket ("70-80kg"), DB wants an exact numeric kg -
+// there's no single correct exact value for a bucket, so this stores the
+// bucket's midpoint as a deliberate, documented approximation (reasonable
+// for a soft compatibility signal, not an exact measurement). Going back,
+// snap to whichever bucket contains the stored value.
+const WEIGHT_BUCKETS: { label: string; min: number; max: number; midpoint: number }[] = [
+  { label: 'Under 50kg', min: 0, max: 50, midpoint: 45 },
+  { label: '50-60kg', min: 50, max: 60, midpoint: 55 },
+  { label: '60-70kg', min: 60, max: 70, midpoint: 65 },
+  { label: '70-80kg', min: 70, max: 80, midpoint: 75 },
+  { label: '80-90kg', min: 80, max: 90, midpoint: 85 },
+  { label: '90-100kg', min: 90, max: 100, midpoint: 95 },
+  { label: '100kg+', min: 100, max: Infinity, midpoint: 105 },
+];
+function weightLabelToKg(label?: string): number | null {
+  const bucket = WEIGHT_BUCKETS.find((b) => b.label === label);
+  return bucket ? bucket.midpoint : null;
+}
+function kgToWeightLabel(kg?: number | null): string {
+  if (typeof kg !== 'number') return '';
+  const bucket = WEIGHT_BUCKETS.find((b) => kg >= b.min && kg < b.max) || WEIGHT_BUCKETS[WEIGHT_BUCKETS.length - 1];
+  return bucket.label;
+}
+
+// Preferred spouse age: same bucket-range shape as weight, but split across
+// two integer columns (min/max) rather than one approximate value - no
+// precision is lost here, "18-25" means exactly min=18/max=25.
+function ageRangeLabelToMinMax(label?: string): { min: number | null; max: number | null } {
+  if (!label || label === 'No preference') return { min: null, max: null };
+  const plusMatch = /^(\d+)\+$/.exec(label);
+  if (plusMatch) return { min: parseInt(plusMatch[1], 10), max: null };
+  const rangeMatch = /^(\d+)-(\d+)$/.exec(label);
+  if (rangeMatch) return { min: parseInt(rangeMatch[1], 10), max: parseInt(rangeMatch[2], 10) };
+  return { min: null, max: null };
+}
+const AGE_RANGE_OPTIONS = ['18-25', '25-30', '30-35', '35-40', '40+', 'No preference'];
+function minMaxToAgeRangeLabel(min?: number | null, max?: number | null): string {
+  if (min == null && max == null) return 'No preference';
+  for (const label of AGE_RANGE_OPTIONS) {
+    const parsed = ageRangeLabelToMinMax(label);
+    if (parsed.min === min && parsed.max === max) return label;
+  }
+  return 'No preference';
+}
+
+const BODY_TYPE_MAP: Record<string, string> = {
+  Slim: 'slim', Athletic: 'athletic', Average: 'average', Curvy: 'curvy',
+  // 'Heavyset' has no matching DB enum value (slim/average/athletic/muscular/curvy) - left unmapped.
+};
+const BODY_TYPE_DISPLAY = invert(BODY_TYPE_MAP);
+
+const EXERCISE_FREQUENCY_MAP: Record<string, string> = {
+  Never: 'never', '1-2x/week': '1-2x_week', '3-4x/week': '3-4x_week', Daily: 'daily',
+  // '5-6x/week' has no matching DB enum value - left unmapped.
+};
+const EXERCISE_FREQUENCY_DISPLAY = invert(EXERCISE_FREQUENCY_MAP);
+
+const EMPLOYMENT_STATUS_MAP: Record<string, string> = {
+  Employed: 'employed', Student: 'student', Retired: 'retired',
+  // 'Self-Employed'/'Business Owner'/'Freelancer'/'Homemaker' have no clean 1:1 DB
+  // equivalent among student/employed/self_employed/unemployed/retired - left unmapped
+  // rather than guessing (e.g. Homemaker != unemployed).
+};
+const EMPLOYMENT_STATUS_DISPLAY = invert(EMPLOYMENT_STATUS_MAP);
+
+const PRAYER_FREQUENCY_MAP: Record<string, string> = {
+  '5 times daily': '5_times_daily', Sometimes: 'sometimes', Never: 'never',
+  // '3-4 times daily'/'1-2 times daily'/'Rarely' have no matching DB enum value.
+};
+const PRAYER_FREQUENCY_DISPLAY = invert(PRAYER_FREQUENCY_MAP);
+
+const RELIGION_IMPORTANCE_MAP: Record<string, string> = {
+  'Very Important': 'very_important', Important: 'somewhat', Moderate: 'somewhat', 'Not Important': 'not_important',
+};
+const RELIGION_IMPORTANCE_DISPLAY = invert(RELIGION_IMPORTANCE_MAP, 'Important');
+
+const GENDER_ROLES_MAP: Record<string, string> = {
+  Traditional: 'traditional', Modern: 'modern', Balanced: 'balanced',
+  // 'No preference' has no matching DB enum value.
+};
+const GENDER_ROLES_DISPLAY = invert(GENDER_ROLES_MAP);
+
+const POLYGAMY_VIEW_MAP: Record<string, string> = {
+  Acceptable: 'acceptable', 'Not acceptable': 'unacceptable', Situational: 'acceptable_with_conditions',
+  // 'No preference' has no matching DB enum value.
+};
+const POLYGAMY_VIEW_DISPLAY = invert(POLYGAMY_VIEW_MAP);
+
+const FAMILY_CLOSENESS_MAP: Record<string, string> = {
+  'Very Close': 'very_close', Close: 'normal', Moderate: 'normal', Distant: 'distant',
+};
+const FAMILY_CLOSENESS_DISPLAY = invert(FAMILY_CLOSENESS_MAP, 'Close');
+
+const INLAW_LIVING_MAP: Record<string, string> = { Yes: 'yes', No: 'no' };
+
+const SOCIALIZE_FREQUENCY_MAP: Record<string, string> = {
+  'Very often': 'very_often', Often: 'often', Sometimes: 'sometimes', Rarely: 'rarely',
+  // 'Never' has no matching DB enum value (rarely/sometimes/often/very_often).
+};
+const SOCIALIZE_FREQUENCY_DISPLAY = invert(SOCIALIZE_FREQUENCY_MAP);
+
+const FORGIVENESS_LEVEL_MAP: Record<string, string> = {
+  'Very forgiving': 'very_forgiving', Forgiving: 'often', Moderate: 'sometimes',
+  'Hold grudges': 'rarely', 'Very difficult to forgive': 'rarely',
+};
+const FORGIVENESS_LEVEL_DISPLAY = invert(FORGIVENESS_LEVEL_MAP, 'Hold grudges');
+
+const SHOW_AFFECTION_MAP: Record<string, string> = {
+  'Very openly': 'expressive', Openly: 'expressive', Moderate: 'moderate', Reserved: 'reserved',
+};
+const SHOW_AFFECTION_DISPLAY = invert(SHOW_AFFECTION_MAP, 'Openly');
+
+const TRAD_MODERN_OUTLOOK_MAP: Record<string, string> = {
+  Traditional: 'traditional', Modern: 'modern', Balanced: 'balanced',
+};
+const TRAD_MODERN_OUTLOOK_DISPLAY = invert(TRAD_MODERN_OUTLOOK_MAP);
+
+const MARRIAGE_TIMING_MAP: Record<string, string> = {
+  Immediately: 'immediately', '1-3 months': 'within_6_months', '3-6 months': 'within_6_months',
+  '6-12 months': 'within_1_year', '1-2 years': 'later', 'No rush': 'later',
+};
+const MARRIAGE_TIMING_DISPLAY = invert(MARRIAGE_TIMING_MAP, '1-3 months');
+
+const KIDS_PREFERENCE_MAP: Record<string, string> = {
+  '0': '0', '1': '1', '2': '2', '3': '3+', '3+': '3+', Undecided: 'undecided',
+};
+const KIDS_PREFERENCE_DISPLAY = invert(KIDS_PREFERENCE_MAP, '3');
+
+// Builds a DB-value -> UI-label reverse lookup from a UI-label -> DB-value
+// map. Several maps above intentionally send more than one UI label to the
+// same DB value (e.g. Forgiving/Moderate -> often/sometimes is fine, but
+// collisions do happen) - `preferredDisplay`, if given, wins when a DB value
+// has more than one possible UI label, so re-opening the form shows the more
+// likely original choice rather than whichever label happened to be last in
+// object-key order.
+function invert(map: Record<string, string>, preferredDisplay?: string): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [display, dbValue] of Object.entries(map)) {
+    if (!(dbValue in result) || display === preferredDisplay) {
+      result[dbValue] = display;
+    }
+  }
+  return result;
+}
+
+function toArrayOrNull(value?: string | null): string[] | null {
+  const trimmed = (value || '').trim();
+  if (!trimmed || trimmed === 'No preference' || trimmed === 'Any') return null;
+  return [trimmed];
+}
+
+// Hobbies is a single free-text textarea in the UI but an array column in
+// the DB - split on commas/newlines into individual trimmed tags.
+function hobbiesTextToArray(value?: string): string[] | null {
+  const parts = (value || '')
+    .split(/[,\n]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return parts.length > 0 ? parts : null;
+}
+function hobbiesArrayToText(value?: string[] | null): string {
+  return Array.isArray(value) ? value.join(', ') : '';
+}
 
 function normalizeDateOfBirth(value?: string): string {
   if (value && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -117,7 +392,76 @@ export async function upsertCurrentUserProfile(
     degree_name: (formData.degreeeName || '').trim() || null,
     profession: (formData.profession || '').trim() || null,
     about_me: (formData.aboutMe || '').trim() || null,
+
+    // Physical & Health
+    height_cm: heightLabelToCm(formData.height),
+    weight_kg: weightLabelToKg(formData.weight),
+    body_type: BODY_TYPE_MAP[formData.bodyType || ''] || null,
+    skin_colour: (formData.skinColour || '').trim() || null,
+    eye_colour: (formData.eyeColour || '').trim() || null,
+    blood_group: (formData.bloodGroup || '').trim() || null,
+    exercise_frequency: EXERCISE_FREQUENCY_MAP[formData.exerciseFrequency || ''] || null,
+
+    // Career
+    employment_status: EMPLOYMENT_STATUS_MAP[formData.employmentStatus || ''] || null,
+    monthly_income: (formData.monthlyIncome || '').trim() || null,
+    future_career_plans: (formData.futureCareerPlans || '').trim() || null,
+
+    // Financial - ownsProperty/ownsCar are real boolean columns; ancestralLand/
+    // savings/debts are varchar columns, so the raw Yes/No string is stored as-is.
+    owns_property: yesNoToBool(formData.ownsProperty),
+    ancestral_land: (formData.ancestralLand || '').trim() || null,
+    savings: (formData.savings || '').trim() || null,
+    debts: (formData.debts || '').trim() || null,
+    owns_car: yesNoToBool(formData.ownsCar),
+    money_management: (formData.moneyManagement || '').trim() || null,
+
+    // Religious
+    prayer_frequency: PRAYER_FREQUENCY_MAP[formData.prayerFrequency || ''] || null,
+    fast_ramadan: yesNoToBool(formData.fastRamadan),
+    gives_zakat: yesNoToBool(formData.givesZakat),
+    religion_importance: RELIGION_IMPORTANCE_MAP[formData.religionImportance || ''] || null,
+    spouse_religiosity: (formData.spouseReligiosity || '').trim() || null,
+
+    // Values
+    important_values: toArrayOrNull(formData.importantValue),
+    handle_disagreements: (formData.handleDisagreements || '').trim() || null,
+    gender_roles: GENDER_ROLES_MAP[formData.genderRoles || ''] || null,
+    polygamy_view: POLYGAMY_VIEW_MAP[formData.polygamyView || ''] || null,
+
+    // Family
+    family_structure: (formData.familyStructure || '').trim() || null,
+    family_closeness: FAMILY_CLOSENESS_MAP[formData.familyCloseness || ''] || null,
+    live_with_inlaws: INLAW_LIVING_MAP[formData.liveWithInlaws || ''] || null,
+    socialize_frequency: SOCIALIZE_FREQUENCY_MAP[formData.socializeFrequency || ''] || null,
+    celebrate_customs: yesNoToBool(formData.celebrateCustoms),
+
+    // Emotional
+    handle_stress: (formData.handleStress || '').trim() || null,
+    personality: (formData.personality || '').trim() || null,
+    forgiveness_level: FORGIVENESS_LEVEL_MAP[formData.forgivenessLevel || ''] || null,
+    love_language: (formData.loveLanguage || '').trim() || null,
+    show_affection: SHOW_AFFECTION_MAP[formData.showAffection || ''] || null,
+
+    // Lifestyle
+    outlook: (formData.outlook || '').trim() || null,
+    tradmodern_outlook: TRAD_MODERN_OUTLOOK_MAP[formData.tradModernOutlook || ''] || null,
+    music_preference: (formData.musicPreference || '').trim() || null,
+    hobbies: hobbiesTextToArray(formData.hobbies),
+
+    // Marriage & Future Vision
+    want_to_marry_when: MARRIAGE_TIMING_MAP[formData.wantToMarryWhen || ''] || null,
+    preferred_education: toArrayOrNull(formData.preferredEducation),
+    preferred_profession: toArrayOrNull(formData.preferredProfession),
+    prefer_working_spouse:
+      formData.preferWorkingSpouse === 'Working' ? true : formData.preferWorkingSpouse === 'Homemaker' ? false : null,
+    expected_kids: KIDS_PREFERENCE_MAP[formData.expectedKids || ''] || null,
+    ideal_marriage_description: (formData.idealMarriage || '').trim() || null,
   };
+
+  const ageRange = ageRangeLabelToMinMax(formData.preferredSpouseAge);
+  payload.preferred_spouse_age_min = ageRange.min;
+  payload.preferred_spouse_age_max = ageRange.max;
 
   if (typeof formData.profileStrength === 'number') {
     payload.profile_strength_percentage = Math.max(0, Math.min(100, Math.round(formData.profileStrength)));
@@ -200,6 +544,71 @@ export function mapProfileRowToFormSnapshot(row: any): ProfileFormSnapshot & { p
     profession: row.profession || '',
     aboutMe: row.about_me || '',
     profileStrength: row.profile_strength_percentage || 0,
+
+    // Physical & Health
+    height: cmToHeightLabel(row.height_cm),
+    weight: kgToWeightLabel(row.weight_kg),
+    bodyType: BODY_TYPE_DISPLAY[row.body_type] || '',
+    skinColour: row.skin_colour || '',
+    eyeColour: row.eye_colour || '',
+    bloodGroup: row.blood_group || '',
+    exerciseFrequency: EXERCISE_FREQUENCY_DISPLAY[row.exercise_frequency] || '',
+
+    // Career
+    employmentStatus: EMPLOYMENT_STATUS_DISPLAY[row.employment_status] || '',
+    monthlyIncome: row.monthly_income || '',
+    futureCareerPlans: row.future_career_plans || '',
+
+    // Financial
+    ownsProperty: boolToYesNo(row.owns_property),
+    ancestralLand: row.ancestral_land || '',
+    savings: row.savings || '',
+    debts: row.debts || '',
+    ownsCar: boolToYesNo(row.owns_car),
+    moneyManagement: row.money_management || '',
+
+    // Religious
+    prayerFrequency: PRAYER_FREQUENCY_DISPLAY[row.prayer_frequency] || '',
+    fastRamadan: boolToYesNo(row.fast_ramadan),
+    givesZakat: boolToYesNo(row.gives_zakat),
+    religionImportance: RELIGION_IMPORTANCE_DISPLAY[row.religion_importance] || '',
+    spouseReligiosity: row.spouse_religiosity || '',
+
+    // Values
+    importantValue: Array.isArray(row.important_values) ? row.important_values[0] || '' : '',
+    handleDisagreements: row.handle_disagreements || '',
+    genderRoles: GENDER_ROLES_DISPLAY[row.gender_roles] || '',
+    polygamyView: POLYGAMY_VIEW_DISPLAY[row.polygamy_view] || '',
+
+    // Family
+    familyStructure: row.family_structure || '',
+    familyCloseness: FAMILY_CLOSENESS_DISPLAY[row.family_closeness] || '',
+    liveWithInlaws: row.live_with_inlaws === 'yes' ? 'Yes' : row.live_with_inlaws === 'no' ? 'No' : '',
+    socializeFrequency: SOCIALIZE_FREQUENCY_DISPLAY[row.socialize_frequency] || '',
+    celebrateCustoms: boolToYesNo(row.celebrate_customs),
+
+    // Emotional
+    handleStress: row.handle_stress || '',
+    personality: row.personality || '',
+    forgivenessLevel: FORGIVENESS_LEVEL_DISPLAY[row.forgiveness_level] || '',
+    loveLanguage: row.love_language || '',
+    showAffection: SHOW_AFFECTION_DISPLAY[row.show_affection] || '',
+
+    // Lifestyle
+    outlook: row.outlook || '',
+    tradModernOutlook: TRAD_MODERN_OUTLOOK_DISPLAY[row.tradmodern_outlook] || '',
+    musicPreference: row.music_preference || '',
+    hobbies: hobbiesArrayToText(row.hobbies),
+
+    // Marriage & Future Vision
+    wantToMarryWhen: MARRIAGE_TIMING_DISPLAY[row.want_to_marry_when] || '',
+    preferredSpouseAge: minMaxToAgeRangeLabel(row.preferred_spouse_age_min, row.preferred_spouse_age_max),
+    preferredEducation: Array.isArray(row.preferred_education) ? row.preferred_education[0] || '' : '',
+    preferredProfession: Array.isArray(row.preferred_profession) ? row.preferred_profession[0] || '' : '',
+    preferWorkingSpouse:
+      row.prefer_working_spouse === true ? 'Working' : row.prefer_working_spouse === false ? 'Homemaker' : '',
+    expectedKids: KIDS_PREFERENCE_DISPLAY[row.expected_kids] || '',
+    idealMarriage: row.ideal_marriage_description || '',
   };
 }
 
